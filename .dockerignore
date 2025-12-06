@@ -1,0 +1,45 @@
+# Add .env to .dockerignore to prevent sensitive data from being copied to Docker image
+.env
+.env.local
+.env.*.local
+
+# Git
+.git
+.gitignore
+
+# Dependencies
+node_modules
+
+# Build artifacts
+.output
+dist
+build
+.tanstack
+
+# Development
+.vscode
+.idea
+
+# Testing
+coverage
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Other
+README.md
+.prettierignore
+.prettierrc
+.eslintrc
+eslint.config.js
+prettier.config.js
