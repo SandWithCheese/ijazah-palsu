@@ -14,7 +14,11 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:pull": "drizzle-kit pull",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "contracts:install": "cd contracts && npm install",
+    "contracts:compile": "cd contracts && npm run compile",
+    "contracts:migrate": "cd contracts && npm run migrate",
+    "contracts:test": "cd contracts && npm run test"
   },
   "dependencies": {
     "@t3-oss/env-core": "^0.13.8",
@@ -40,6 +44,7 @@
     "tailwindcss": "^4.0.6",
     "tw-animate-css": "^1.3.6",
     "vite-tsconfig-paths": "^5.1.4",
+    "web3": "^4.15.0",
     "zod": "^4.1.11"
   },
   "devDependencies": {

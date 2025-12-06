@@ -20,6 +20,26 @@ services:
     networks:
       - ijazah-palsu-network
 
+  # Ganache (Ethereum Blockchain)
+  ganache:
+    image: trufflesuite/ganache:latest
+    container_name: ijazah-palsu-ganache
+    restart: unless-stopped
+    ports:
+      - "${GANACHE_PORT:-8545}:8545"
+    command: >
+      --mnemonic "${GANACHE_MNEMONIC:-test test test test test test test test test test test junk}"
+      --networkId ${GANACHE_NETWORK_ID:-5777}
+      --accounts ${GANACHE_ACCOUNTS:-10}
+      --defaultBalanceEther ${GANACHE_BALANCE:-100}
+      --gasLimit ${GANACHE_GAS_LIMIT:-10000000}
+      --host 0.0.0.0
+      --database.dbPath /ganache_data
+    volumes:
+      - ganache_data:/ganache_data
+    networks:
+      - ijazah-palsu-network
+
   # Application
   app:
     build:
@@ -34,10 +54,14 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      ganache:
+        condition: service_started
     networks:
       - ijazah-palsu-network
 
 volumes:
+  ganache_data:
+    driver: local
   postgres_data:
     driver: local
 

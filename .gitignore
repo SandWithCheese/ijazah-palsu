@@ -11,3 +11,8 @@ count.txt
 .output
 .vinxi
 todos.json
+
+# Smart Contracts
+contracts/node_modules
+contracts/build
+contracts/deployments.json

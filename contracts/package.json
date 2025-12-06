@@ -1,0 +1,33 @@
+{
+  "name": "contracts",
+  "version": "1.0.0",
+  "description": "Smart contracts for Ijazah Palsu project",
+  "main": "truffle-config.js",
+  "scripts": {
+    "compile": "truffle compile",
+    "migrate": "truffle migrate --network development",
+    "migrate:docker": "truffle migrate --network docker",
+    "migrate:reset": "truffle migrate --reset --network development",
+    "test": "truffle test",
+    "console": "truffle console --network development"
+  },
+  "keywords": [
+    "blockchain",
+    "ethereum",
+    "truffle",
+    "solidity",
+    "nft"
+  ],
+  "author": "",
+  "license": "MIT",
+  "type": "commonjs",
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.0.0",
+    "dotenv": "^16.0.0"
+  },
+  "devDependencies": {
+    "@truffle/hdwallet-provider": "^2.1.15",
+    "chai": "^4.3.10",
+    "truffle": "^5.11.0"
+  }
+}
