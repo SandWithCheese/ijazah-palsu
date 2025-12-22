@@ -2,11 +2,14 @@ import {
   HeadContent,
   Scripts,
   createRootRouteWithContext,
+  Outlet,
+  useLocation,
 } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 
 import Header from '../components/Header'
+import { WalletProvider } from '../hooks/useWallet'
 
 import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'
 
@@ -29,7 +32,12 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
         content: 'width=device-width, initial-scale=1',
       },
       {
-        title: 'TanStack Start Starter',
+        title: 'Serti-Chain | Blockchain Diploma Verification',
+      },
+      {
+        name: 'description',
+        content:
+          'Issue, manage, and verify digital diplomas instantly with blockchain technology. Tamper-proof credentials for universities and students worldwide.',
       },
     ],
     links: [
@@ -37,21 +45,33 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
         rel: 'stylesheet',
         href: appCss,
       },
+      {
+        rel: 'icon',
+        type: 'image/svg+xml',
+        href: '/favicon.svg',
+      },
     ],
   }),
 
-  shellComponent: RootDocument,
+  component: RootComponent,
 })
 
-function RootDocument({ children }: { children: React.ReactNode }) {
+function RootComponent() {
+  const location = useLocation()
+
+  // Pages that should show the public header
+  const showHeader = location.pathname === '/'
+
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <head>
         <HeadContent />
       </head>
-      <body>
-        <Header />
-        {children}
+      <body className="min-h-screen bg-sc-bg-primary">
+        <WalletProvider>
+          {showHeader && <Header />}
+          <Outlet />
+        </WalletProvider>
         <TanStackDevtools
           config={{
             position: 'bottom-right',
