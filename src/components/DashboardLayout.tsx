@@ -1,4 +1,4 @@
-import { ChevronDown, Lock } from 'lucide-react'
+import { ChevronDown, Lock, AlertTriangle, Wallet } from 'lucide-react'
 import Sidebar from './Sidebar'
 import { useWallet } from '../hooks/useWallet'
 
@@ -13,11 +13,18 @@ export default function DashboardLayout({
   title,
   subtitle,
 }: DashboardLayoutProps) {
-  const { address } = useWallet()
+  const {
+    address,
+    isConnected,
+    isIssuer,
+    isCorrectNetwork,
+    connect,
+    switchNetwork,
+  } = useWallet()
 
   const formatAddress = (addr: string | null) => {
     if (!addr) return 'Not Connected'
-    return `${addr.slice(0, 4)}...${addr.slice(-2)}`
+    return `${addr.slice(0, 6)}...${addr.slice(-4)}`
   }
 
   return (
@@ -39,16 +46,41 @@ export default function DashboardLayout({
           </div>
 
           <div className="flex items-center gap-4">
-            <button className="flex items-center gap-2 px-4 h-10 rounded-lg bg-[#232948] border border-[#323b67] text-white text-sm font-bold hover:bg-[#2e365c] transition-colors">
-              <Lock className="text-green-400 w-[18px] h-[18px]" />
-              <span className="truncate">
-                {formatAddress(address)} connected
-              </span>
-              <ChevronDown className="text-[#929bc9] w-[16px] h-[16px]" />
-            </button>
+            {/* Network Warning */}
+            {isConnected && !isCorrectNetwork && (
+              <button
+                onClick={switchNetwork}
+                className="flex items-center gap-2 px-4 h-10 rounded-lg bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 text-sm font-bold hover:bg-yellow-500/30 transition-colors"
+              >
+                <AlertTriangle className="w-4 h-4" />
+                <span>Wrong Network - Click to switch</span>
+              </button>
+            )}
+
+            {/* Wallet Connection Status */}
+            {isConnected ? (
+              <div className="flex items-center gap-2 px-4 h-10 rounded-lg bg-[#232948] border border-[#323b67] text-white text-sm font-bold">
+                <Lock className="text-green-400 w-[18px] h-[18px]" />
+                <span className="truncate">{formatAddress(address)}</span>
+                {isIssuer && (
+                  <span className="ml-2 px-2 py-0.5 rounded text-xs bg-green-500/20 text-green-400 border border-green-500/30">
+                    Issuer
+                  </span>
+                )}
+              </div>
+            ) : (
+              <button
+                onClick={connect}
+                className="flex items-center gap-2 px-4 h-10 rounded-lg bg-sc-accent-blue hover:bg-blue-700 text-white text-sm font-bold transition-colors"
+              >
+                <Wallet className="w-4 h-4" />
+                <span>Connect Wallet</span>
+              </button>
+            )}
+
             <div className="h-10 w-10 rounded-full border-2 border-[#232948] bg-cover bg-center overflow-hidden">
               <img
-                src="https://api.dicebear.com/7.x/avataaars/svg?seed=institution"
+                src={`https://api.dicebear.com/7.x/identicon/svg?seed=${address || 'guest'}`}
                 alt="Profile"
                 className="w-full h-full object-cover"
               />

@@ -3,12 +3,18 @@ const { expect } = require('chai')
 
 contract('IjazahNFT', (accounts) => {
   let ijazahNFT
-  const owner = accounts[0]
-  const recipient = accounts[1]
-  const otherAccount = accounts[2]
+  const admin = accounts[0]
+  const issuer = accounts[1]
+  const recipient = accounts[2]
+  const otherAccount = accounts[3]
+
+  // Role constants (must match contract)
+  const ISSUER_ROLE = web3.utils.keccak256('ISSUER_ROLE')
+  const DEFAULT_ADMIN_ROLE =
+    '0x0000000000000000000000000000000000000000000000000000000000000000'
 
   beforeEach(async () => {
-    ijazahNFT = await IjazahNFT.new(owner)
+    ijazahNFT = await IjazahNFT.new(admin)
   })
 
   describe('Deployment', () => {
@@ -16,228 +22,295 @@ contract('IjazahNFT', (accounts) => {
       const name = await ijazahNFT.name()
       const symbol = await ijazahNFT.symbol()
 
-      expect(name).to.equal('Ijazah Certificate')
+      expect(name).to.equal('Ijazah Digital')
       expect(symbol).to.equal('IJAZAH')
     })
 
-    it('should set the correct owner', async () => {
-      const contractOwner = await ijazahNFT.owner()
-      expect(contractOwner).to.equal(owner)
+    it('should grant admin role to deployer', async () => {
+      const hasAdminRole = await ijazahNFT.hasRole(DEFAULT_ADMIN_ROLE, admin)
+      expect(hasAdminRole).to.be.true
+    })
+
+    it('should grant issuer role to deployer', async () => {
+      const hasIssuerRole = await ijazahNFT.hasRole(ISSUER_ROLE, admin)
+      expect(hasIssuerRole).to.be.true
     })
   })
 
-  describe('Minting Certificates', () => {
-    const certificateHash = web3.utils.keccak256('test certificate data')
-    const tokenURI = 'ipfs://QmTestHash'
+  describe('Issuer Management', () => {
+    it('should allow admin to add new issuer', async () => {
+      await ijazahNFT.addIssuer(issuer, { from: admin })
+      const isIssuerNow = await ijazahNFT.isIssuer(issuer)
+      expect(isIssuerNow).to.be.true
+    })
 
-    it('should mint a certificate successfully', async () => {
-      const tx = await ijazahNFT.mintCertificate(
+    it('should allow admin to remove issuer', async () => {
+      await ijazahNFT.addIssuer(issuer, { from: admin })
+      await ijazahNFT.removeIssuer(issuer, { from: admin })
+      const isIssuerNow = await ijazahNFT.isIssuer(issuer)
+      expect(isIssuerNow).to.be.false
+    })
+
+    it('should not allow non-admin to add issuer', async () => {
+      let errorOccurred = false
+      try {
+        await ijazahNFT.addIssuer(issuer, { from: otherAccount })
+      } catch (error) {
+        errorOccurred = true
+      }
+      expect(errorOccurred).to.be.true
+    })
+  })
+
+  describe('Diploma Issuance', () => {
+    const documentHash = web3.utils.keccak256('diploma content hash')
+    const cid = 'ipfs://QmTestHash123'
+    const signature = '0x1234567890abcdef'
+
+    it('should issue a diploma successfully', async () => {
+      const tx = await ijazahNFT.issueDiploma(
         recipient,
-        certificateHash,
-        tokenURI,
-        { from: owner },
+        documentHash,
+        cid,
+        signature,
+        { from: admin },
       )
 
-      // Check event emission (CertificateMinted is the 4th event emitted)
-      const certificateEvent = tx.logs.find(
-        (log) => log.event === 'CertificateMinted',
-      )
-      expect(certificateEvent).to.not.be.undefined
-      expect(certificateEvent.args.recipient).to.equal(recipient)
-      expect(certificateEvent.args.issuer).to.equal(owner)
-      expect(certificateEvent.args.certificateHash).to.equal(certificateHash)
+      // Check event emission
+      const event = tx.logs.find((log) => log.event === 'DiplomaIssued')
+      expect(event).to.not.be.undefined
+      expect(event.args.recipient).to.equal(recipient)
+      expect(event.args.issuer).to.equal(admin)
+      expect(event.args.documentHash).to.equal(documentHash)
+      expect(event.args.cid).to.equal(cid)
 
       // Check token ownership
-      const tokenId = certificateEvent.args.tokenId
-      const tokenOwner = await ijazahNFT.ownerOf(tokenId)
+      const diplomaId = event.args.diplomaId
+      const tokenOwner = await ijazahNFT.ownerOf(diplomaId)
       expect(tokenOwner).to.equal(recipient)
     })
 
-    it('should store certificate hash correctly', async () => {
-      const tx = await ijazahNFT.mintCertificate(
+    it('should store diploma data correctly', async () => {
+      const tx = await ijazahNFT.issueDiploma(
         recipient,
-        certificateHash,
-        tokenURI,
-        { from: owner },
+        documentHash,
+        cid,
+        signature,
+        { from: admin },
       )
 
-      const certificateEvent = tx.logs.find(
-        (log) => log.event === 'CertificateMinted',
-      )
-      const tokenId = certificateEvent.args.tokenId
-      const storedHash = await ijazahNFT.certificateHashes(tokenId)
+      const event = tx.logs.find((log) => log.event === 'DiplomaIssued')
+      const diplomaId = event.args.diplomaId
 
-      expect(storedHash).to.equal(certificateHash)
+      const details = await ijazahNFT.getDiplomaDetails(diplomaId)
+      expect(details.owner).to.equal(recipient)
+      expect(details.diploma.documentHash).to.equal(documentHash)
+      expect(details.diploma.cid).to.equal(cid)
+      expect(details.diploma.issuer).to.equal(admin)
+      expect(details.diploma.isActive).to.be.true
     })
 
-    it('should set the correct token URI', async () => {
-      const tx = await ijazahNFT.mintCertificate(
-        recipient,
-        certificateHash,
-        tokenURI,
-        { from: owner },
-      )
-
-      const certificateEvent = tx.logs.find(
-        (log) => log.event === 'CertificateMinted',
-      )
-      const tokenId = certificateEvent.args.tokenId
-      const uri = await ijazahNFT.tokenURI(tokenId)
-
-      expect(uri).to.equal(tokenURI)
-    })
-
-    it('should only allow owner to mint', async () => {
+    it('should only allow issuers to issue diplomas', async () => {
       let errorOccurred = false
       try {
-        await ijazahNFT.mintCertificate(recipient, certificateHash, tokenURI, {
+        await ijazahNFT.issueDiploma(recipient, documentHash, cid, signature, {
           from: otherAccount,
         })
       } catch (error) {
         errorOccurred = true
-        // Verify it's an access control error (not some other error)
-        // OpenZeppelin v5 uses custom errors which may be encoded differently
-        expect(error.message).to.not.include('invalid opcode')
       }
-      // The important part: non-owner was  blocked from minting
       expect(errorOccurred).to.be.true
     })
 
-    it('should increment token IDs', async () => {
-      const tx1 = await ijazahNFT.mintCertificate(
+    it('should increment diploma IDs', async () => {
+      const tx1 = await ijazahNFT.issueDiploma(
         recipient,
-        certificateHash,
-        tokenURI,
-        { from: owner },
+        documentHash,
+        cid,
+        signature,
+        { from: admin },
       )
 
-      const tx2 = await ijazahNFT.mintCertificate(
+      const tx2 = await ijazahNFT.issueDiploma(
         recipient,
-        web3.utils.keccak256('another certificate'),
+        web3.utils.keccak256('another diploma'),
         'ipfs://QmAnotherHash',
-        { from: owner },
+        '0xabcdef',
+        { from: admin },
       )
 
-      const event1 = tx1.logs.find((log) => log.event === 'CertificateMinted')
-      const event2 = tx2.logs.find((log) => log.event === 'CertificateMinted')
-      const tokenId1 = event1.args.tokenId
-      const tokenId2 = event2.args.tokenId
+      const event1 = tx1.logs.find((log) => log.event === 'DiplomaIssued')
+      const event2 = tx2.logs.find((log) => log.event === 'DiplomaIssued')
 
-      expect(Number(tokenId2)).to.equal(Number(tokenId1) + 1)
+      expect(Number(event2.args.diplomaId)).to.equal(
+        Number(event1.args.diplomaId) + 1,
+      )
     })
   })
 
-  describe('Certificate Verification', () => {
-    let tokenId
-    const certificateHash = web3.utils.keccak256('test certificate data')
-    const tokenURI = 'ipfs://QmTestHash'
+  describe('Diploma Revocation', () => {
+    let diplomaId
+    const documentHash = web3.utils.keccak256('diploma content hash')
+    const cid = 'ipfs://QmTestHash123'
+    const signature = '0x1234567890abcdef'
+    const revocationReason = 'Credential fraud detected'
 
     beforeEach(async () => {
-      const tx = await ijazahNFT.mintCertificate(
+      const tx = await ijazahNFT.issueDiploma(
         recipient,
-        certificateHash,
-        tokenURI,
-        { from: owner },
+        documentHash,
+        cid,
+        signature,
+        { from: admin },
       )
-      const event = tx.logs.find((log) => log.event === 'CertificateMinted')
-      tokenId = event.args.tokenId
+      const event = tx.logs.find((log) => log.event === 'DiplomaIssued')
+      diplomaId = event.args.diplomaId
     })
 
-    it('should verify a valid certificate', async () => {
-      const isValid = await ijazahNFT.verifyCertificate(
-        tokenId,
-        certificateHash,
-      )
-
-      expect(isValid).to.be.true
-    })
-
-    it('should reject an invalid certificate hash', async () => {
-      const wrongHash = web3.utils.keccak256('wrong data')
-      const isValid = await ijazahNFT.verifyCertificate(tokenId, wrongHash)
-
-      expect(isValid).to.be.false
-    })
-
-    it('should revert for non-existent token', async () => {
-      try {
-        await ijazahNFT.verifyCertificate(999, certificateHash)
-        expect.fail('Should have thrown an error')
-      } catch (error) {
-        expect(error.message).to.include('Certificate does not exist')
-      }
-    })
-  })
-
-  describe('Certificate Details', () => {
-    let tokenId
-    let issueTime
-    const certificateHash = web3.utils.keccak256('test certificate data')
-    const tokenURI = 'ipfs://QmTestHash'
-
-    beforeEach(async () => {
-      const tx = await ijazahNFT.mintCertificate(
-        recipient,
-        certificateHash,
-        tokenURI,
-        { from: owner },
-      )
-      const event = tx.logs.find((log) => log.event === 'CertificateMinted')
-      tokenId = event.args.tokenId
-
-      // Get the block timestamp
-      const block = await web3.eth.getBlock(tx.receipt.blockNumber)
-      issueTime = block.timestamp
-    })
-
-    it('should return correct certificate details', async () => {
-      const details = await ijazahNFT.getCertificateDetails(tokenId)
-
-      expect(details.owner).to.equal(recipient)
-      expect(details.issuer).to.equal(owner)
-      expect(details.certificateHash).to.equal(certificateHash)
-      // Allow 1 second tolerance for timestamp
-      expect(Math.abs(Number(details.issueDate) - issueTime)).to.be.lessThan(2)
-    })
-
-    it('should revert for non-existent token', async () => {
-      try {
-        await ijazahNFT.getCertificateDetails(999)
-        expect.fail('Should have thrown an error')
-      } catch (error) {
-        expect(error.message).to.include('Certificate does not exist')
-      }
-    })
-
-    it('should track certificate ownership after transfer', async () => {
-      // Transfer the certificate
-      await ijazahNFT.transferFrom(recipient, otherAccount, tokenId, {
-        from: recipient,
+    it('should revoke a diploma successfully', async () => {
+      const tx = await ijazahNFT.revokeDiploma(diplomaId, revocationReason, {
+        from: admin,
       })
 
-      const details = await ijazahNFT.getCertificateDetails(tokenId)
+      // Check event emission
+      const event = tx.logs.find((log) => log.event === 'DiplomaRevoked')
+      expect(event).to.not.be.undefined
+      expect(event.args.diplomaId.toString()).to.equal(diplomaId.toString())
+      expect(event.args.revoker).to.equal(admin)
+      expect(event.args.reason).to.equal(revocationReason)
 
-      // Owner should be updated
-      expect(details.owner).to.equal(otherAccount)
-      // But issuer should remain the same
-      expect(details.issuer).to.equal(owner)
+      // Check diploma status
+      const details = await ijazahNFT.getDiplomaDetails(diplomaId)
+      expect(details.diploma.isActive).to.be.false
+    })
+
+    it('should store revocation reason', async () => {
+      await ijazahNFT.revokeDiploma(diplomaId, revocationReason, {
+        from: admin,
+      })
+      const storedReason = await ijazahNFT.revocationReasons(diplomaId)
+      expect(storedReason).to.equal(revocationReason)
+    })
+
+    it('should not allow revoking twice', async () => {
+      await ijazahNFT.revokeDiploma(diplomaId, revocationReason, {
+        from: admin,
+      })
+
+      let errorOccurred = false
+      try {
+        await ijazahNFT.revokeDiploma(diplomaId, 'Another reason', {
+          from: admin,
+        })
+      } catch (error) {
+        errorOccurred = true
+        expect(error.message).to.include('already revoked')
+      }
+      expect(errorOccurred).to.be.true
+    })
+
+    it('should not allow non-issuers to revoke', async () => {
+      let errorOccurred = false
+      try {
+        await ijazahNFT.revokeDiploma(diplomaId, revocationReason, {
+          from: otherAccount,
+        })
+      } catch (error) {
+        errorOccurred = true
+      }
+      expect(errorOccurred).to.be.true
+    })
+  })
+
+  describe('Diploma Verification', () => {
+    let diplomaId
+    const documentHash = web3.utils.keccak256('diploma content hash')
+    const cid = 'ipfs://QmTestHash123'
+    const signature = '0x1234567890abcdef'
+
+    beforeEach(async () => {
+      const tx = await ijazahNFT.issueDiploma(
+        recipient,
+        documentHash,
+        cid,
+        signature,
+        { from: admin },
+      )
+      const event = tx.logs.find((log) => log.event === 'DiplomaIssued')
+      diplomaId = event.args.diplomaId
+    })
+
+    it('should verify active diploma as valid and active', async () => {
+      const result = await ijazahNFT.verifyDiploma(diplomaId)
+      expect(result.isValid).to.be.true
+      expect(result.isActive).to.be.true
+    })
+
+    it('should verify revoked diploma as valid but not active', async () => {
+      await ijazahNFT.revokeDiploma(diplomaId, 'Test revocation', {
+        from: admin,
+      })
+
+      const result = await ijazahNFT.verifyDiploma(diplomaId)
+      expect(result.isValid).to.be.true
+      expect(result.isActive).to.be.false
+    })
+
+    it('should verify non-existent diploma as invalid', async () => {
+      const result = await ijazahNFT.verifyDiploma(999)
+      expect(result.isValid).to.be.false
+      expect(result.isActive).to.be.false
+    })
+
+    it('should verify hash correctly', async () => {
+      const isMatch = await ijazahNFT.verifyHash(diplomaId, documentHash)
+      expect(isMatch).to.be.true
+
+      const wrongHash = web3.utils.keccak256('wrong content')
+      const isWrongMatch = await ijazahNFT.verifyHash(diplomaId, wrongHash)
+      expect(isWrongMatch).to.be.false
+    })
+  })
+
+  describe('Total Diplomas Counter', () => {
+    const documentHash = web3.utils.keccak256('diploma content hash')
+    const cid = 'ipfs://QmTestHash123'
+    const signature = '0x1234567890abcdef'
+
+    it('should track total diplomas issued', async () => {
+      const initialCount = await ijazahNFT.getTotalDiplomas()
+      expect(Number(initialCount)).to.equal(0)
+
+      await ijazahNFT.issueDiploma(recipient, documentHash, cid, signature, {
+        from: admin,
+      })
+      const countAfterOne = await ijazahNFT.getTotalDiplomas()
+      expect(Number(countAfterOne)).to.equal(1)
+
+      await ijazahNFT.issueDiploma(recipient, documentHash, cid, signature, {
+        from: admin,
+      })
+      const countAfterTwo = await ijazahNFT.getTotalDiplomas()
+      expect(Number(countAfterTwo)).to.equal(2)
     })
   })
 
   describe('ERC721 Standard Compliance', () => {
-    let tokenId
-    const certificateHash = web3.utils.keccak256('test certificate data')
-    const tokenURI = 'ipfs://QmTestHash'
+    let diplomaId
+    const documentHash = web3.utils.keccak256('diploma content hash')
+    const cid = 'ipfs://QmTestHash123'
+    const signature = '0x1234567890abcdef'
 
     beforeEach(async () => {
-      const tx = await ijazahNFT.mintCertificate(
+      const tx = await ijazahNFT.issueDiploma(
         recipient,
-        certificateHash,
-        tokenURI,
-        { from: owner },
+        documentHash,
+        cid,
+        signature,
+        { from: admin },
       )
-      const event = tx.logs.find((log) => log.event === 'CertificateMinted')
-      tokenId = event.args.tokenId
+      const event = tx.logs.find((log) => log.event === 'DiplomaIssued')
+      diplomaId = event.args.diplomaId
     })
 
     it('should support ERC721 interface', async () => {
@@ -246,27 +319,25 @@ contract('IjazahNFT', (accounts) => {
       expect(supportsERC721).to.be.true
     })
 
+    it('should support AccessControl interface', async () => {
+      // AccessControl interface ID: 0x7965db0b
+      const supportsAccessControl =
+        await ijazahNFT.supportsInterface('0x7965db0b')
+      expect(supportsAccessControl).to.be.true
+    })
+
     it('should allow token transfer', async () => {
-      await ijazahNFT.transferFrom(recipient, otherAccount, tokenId, {
+      await ijazahNFT.transferFrom(recipient, otherAccount, diplomaId, {
         from: recipient,
       })
 
-      const newOwner = await ijazahNFT.ownerOf(tokenId)
+      const newOwner = await ijazahNFT.ownerOf(diplomaId)
       expect(newOwner).to.equal(otherAccount)
     })
 
-    it('should update balance after transfer', async () => {
-      const balanceBefore = await ijazahNFT.balanceOf(recipient)
-
-      await ijazahNFT.transferFrom(recipient, otherAccount, tokenId, {
-        from: recipient,
-      })
-
-      const balanceAfter = await ijazahNFT.balanceOf(recipient)
-      const newOwnerBalance = await ijazahNFT.balanceOf(otherAccount)
-
-      expect(Number(balanceAfter)).to.equal(Number(balanceBefore) - 1)
-      expect(Number(newOwnerBalance)).to.equal(1)
+    it('should return correct token URI', async () => {
+      const uri = await ijazahNFT.tokenURI(diplomaId)
+      expect(uri).to.equal(cid)
     })
   })
 })

@@ -54,6 +54,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
   }),
 
   component: RootComponent,
+  notFoundComponent: NotFoundComponent,
 })
 
 function RootComponent() {
@@ -87,5 +88,22 @@ function RootComponent() {
         <Scripts />
       </body>
     </html>
+  )
+}
+
+function NotFoundComponent() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-sc-bg-primary">
+      <div className="text-center">
+        <h1 className="text-6xl font-black text-white mb-4">404</h1>
+        <p className="text-xl text-[#929bc9] mb-8">Page not found</p>
+        <a
+          href="/"
+          className="inline-flex items-center gap-2 px-6 py-3 bg-sc-accent-blue text-white font-bold rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          Go Home
+        </a>
+      </div>
+    </div>
   )
 }

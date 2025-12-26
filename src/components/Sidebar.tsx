@@ -5,11 +5,13 @@ import {
   BookOpen,
   ShieldCheck,
   Box,
+  XCircle,
 } from 'lucide-react'
 
 const mainLinks = [
   { to: '/dashboard', label: 'Overview', icon: LayoutDashboard, exact: true },
-  { to: '/dashboard/mint', label: 'Mint Diploma', icon: Award },
+  { to: '/dashboard/mint', label: 'Issue Diploma', icon: Award },
+  { to: '/dashboard/revoke', label: 'Revoke Diploma', icon: XCircle },
   { to: '/dashboard/records', label: 'Student Records', icon: BookOpen },
   { to: '/dashboard/verify', label: 'Verification', icon: ShieldCheck },
 ]

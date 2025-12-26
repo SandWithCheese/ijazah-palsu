@@ -25,18 +25,13 @@ export const useWeb3 = () => {
     setError(null)
 
     try {
-      // Request account access
       await requestAccounts()
-
-      // Get current account
       const currentAccount = await getCurrentAccount()
       setAccount(currentAccount)
 
-      // Get network ID
       const netId = await getNetworkId()
       setNetworkId(netId)
 
-      // Check if on correct network
       const correctNetwork = await isCorrectNetwork()
       setIsCorrectNet(correctNetwork)
 
@@ -67,22 +62,17 @@ export const useWeb3 = () => {
     }
   }
 
-  // Initialize and set up listeners
   useEffect(() => {
     const init = async () => {
       try {
-        // Check if already connected
         const currentAccount = await getCurrentAccount()
 
         if (currentAccount) {
           setAccount(currentAccount)
-
           const netId = await getNetworkId()
           setNetworkId(netId)
-
           const correctNetwork = await isCorrectNetwork()
           setIsCorrectNet(correctNetwork)
-
           setIsConnected(true)
         }
       } catch (err: any) {
@@ -94,7 +84,6 @@ export const useWeb3 = () => {
 
     init()
 
-    // Set up event listeners
     onAccountsChanged((accounts: string[]) => {
       if (accounts.length === 0) {
         disconnect()
@@ -106,7 +95,6 @@ export const useWeb3 = () => {
     onChainChanged(async () => {
       const netId = await getNetworkId()
       setNetworkId(netId)
-
       const correctNetwork = await isCorrectNetwork()
       setIsCorrectNet(correctNetwork)
     })
@@ -133,10 +121,14 @@ export const useIjazahNFT = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const mintCertificate = async (
+  /**
+   * Issue a new diploma
+   */
+  const issueDiploma = async (
     recipientAddress: string,
-    certificateData: any,
-    tokenURI: string,
+    documentHash: string,
+    cid: string,
+    signature: string,
   ) => {
     if (!account || !isConnected) {
       throw new Error('Wallet not connected')
@@ -146,20 +138,17 @@ export const useIjazahNFT = () => {
     setError(null)
 
     try {
-      const { mintCertificate: mint, createCertificateHash } =
-        await import('./contracts')
-
-      const certificateHash = createCertificateHash(certificateData)
-      const receipt = await mint(
+      const { issueDiploma: issue } = await import('./contracts')
+      const receipt = await issue(
         recipientAddress,
-        certificateHash,
-        tokenURI,
+        documentHash,
+        cid,
+        signature,
         account,
       )
-
       return receipt
     } catch (err: any) {
-      const errorMessage = err.message || 'Failed to mint certificate'
+      const errorMessage = err.message || 'Failed to issue diploma'
       setError(errorMessage)
       throw new Error(errorMessage)
     } finally {
@@ -167,20 +156,23 @@ export const useIjazahNFT = () => {
     }
   }
 
-  const verifyCertificate = async (tokenId: number, certificateData: any) => {
+  /**
+   * Revoke a diploma
+   */
+  const revokeDiploma = async (diplomaId: number, reason: string) => {
+    if (!account || !isConnected) {
+      throw new Error('Wallet not connected')
+    }
+
     setIsLoading(true)
     setError(null)
 
     try {
-      const { verifyCertificate: verify, createCertificateHash } =
-        await import('./contracts')
-
-      const certificateHash = createCertificateHash(certificateData)
-      const isValid = await verify(tokenId, certificateHash)
-
-      return isValid
+      const { revokeDiploma: revoke } = await import('./contracts')
+      const receipt = await revoke(diplomaId, reason, account)
+      return receipt
     } catch (err: any) {
-      const errorMessage = err.message || 'Failed to verify certificate'
+      const errorMessage = err.message || 'Failed to revoke diploma'
       setError(errorMessage)
       throw new Error(errorMessage)
     } finally {
@@ -188,17 +180,59 @@ export const useIjazahNFT = () => {
     }
   }
 
-  const getCertificateDetails = async (tokenId: number) => {
+  /**
+   * Verify a diploma
+   */
+  const verifyDiploma = async (diplomaId: number) => {
     setIsLoading(true)
     setError(null)
 
     try {
-      const { getCertificateDetails: getDetails } = await import('./contracts')
-      const details = await getDetails(tokenId)
+      const { verifyDiploma: verify } = await import('./contracts')
+      const result = await verify(diplomaId)
+      return result
+    } catch (err: any) {
+      const errorMessage = err.message || 'Failed to verify diploma'
+      setError(errorMessage)
+      throw new Error(errorMessage)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
+  /**
+   * Verify diploma hash
+   */
+  const verifyHash = async (diplomaId: number, documentHash: string) => {
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const { verifyHash: verify } = await import('./contracts')
+      const isMatch = await verify(diplomaId, documentHash)
+      return isMatch
+    } catch (err: any) {
+      const errorMessage = err.message || 'Failed to verify hash'
+      setError(errorMessage)
+      throw new Error(errorMessage)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  /**
+   * Get diploma details
+   */
+  const getDiplomaDetails = async (diplomaId: number) => {
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const { getDiplomaDetails: getDetails } = await import('./contracts')
+      const details = await getDetails(diplomaId)
       return details
     } catch (err: any) {
-      const errorMessage = err.message || 'Failed to get certificate details'
+      const errorMessage = err.message || 'Failed to get diploma details'
       setError(errorMessage)
       throw new Error(errorMessage)
     } finally {
@@ -206,35 +240,65 @@ export const useIjazahNFT = () => {
     }
   }
 
-  const getOwnedCertificates = async (ownerAddress?: string) => {
-    const address = ownerAddress || account
-
-    if (!address) {
-      throw new Error('No address provided')
-    }
-
+  /**
+   * Get revocation reason
+   */
+  const getRevocationReason = async (diplomaId: number) => {
     setIsLoading(true)
     setError(null)
 
     try {
-      const { getOwnedTokens } = await import('./contracts')
-      const tokens = await getOwnedTokens(address)
-
-      return tokens
+      const { getRevocationReason: getReason } = await import('./contracts')
+      const reason = await getReason(diplomaId)
+      return reason
     } catch (err: any) {
-      const errorMessage = err.message || 'Failed to get owned certificates'
+      const errorMessage = err.message || 'Failed to get revocation reason'
       setError(errorMessage)
       throw new Error(errorMessage)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  /**
+   * Check if connected account is an issuer
+   */
+  const checkIsIssuer = async () => {
+    if (!account) return false
+
+    try {
+      const { isIssuer } = await import('./contracts')
+      return await isIssuer(account)
+    } catch {
+      return false
+    }
+  }
+
+  /**
+   * Sign a message with wallet
+   */
+  const signMessage = async (message: string) => {
+    if (!account || !isConnected) {
+      throw new Error('Wallet not connected')
+    }
+
+    try {
+      const { signMessage: sign } = await import('./contracts')
+      return await sign(message, account)
+    } catch (err: any) {
+      throw new Error(err.message || 'Failed to sign message')
     }
   }
 
   return {
-    mintCertificate,
-    verifyCertificate,
-    getCertificateDetails,
-    getOwnedCertificates,
+    issueDiploma,
+    revokeDiploma,
+    verifyDiploma,
+    verifyHash,
+    getDiplomaDetails,
+    getRevocationReason,
+    checkIsIssuer,
+    signMessage,
     isLoading,
     error,
   }

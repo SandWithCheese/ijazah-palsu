@@ -112,8 +112,8 @@ body {
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
-/* Glass Panel */
-.glass-panel {
+/* Glass Panel - Custom Utility for Tailwind 4.x */
+@utility glass-panel {
   background: rgba(25, 30, 51, 0.7);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -175,11 +175,22 @@ body {
 
 /* Cards */
 .sc-card {
-  @apply glass-panel rounded-xl p-6;
+  background: rgba(25, 30, 51, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
 }
 
 .sc-card-hover {
-  @apply glass-panel rounded-xl p-6 transition-all duration-300;
+  background: rgba(25, 30, 51, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  transition: all 0.3s;
 }
 
 .sc-card-hover:hover {
@@ -189,19 +200,82 @@ body {
 
 /* Buttons */
 .sc-btn {
-  @apply inline-flex items-center justify-center gap-2 px-4 py-2 font-bold transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed rounded-lg;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-weight: 700;
+  transition: all 0.2s;
+  cursor: pointer;
+  border-radius: 0.5rem;
+}
+
+.sc-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .sc-btn-primary {
-  @apply sc-btn bg-sc-accent-blue text-white shadow-lg shadow-blue-900/20 hover:bg-blue-700 active:scale-[0.98];
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-weight: 700;
+  transition: all 0.2s;
+  cursor: pointer;
+  border-radius: 0.5rem;
+  background-color: var(--sc-accent-blue);
+  color: white;
+  box-shadow: 0 10px 15px -3px rgba(30, 58, 138, 0.2);
+}
+
+.sc-btn-primary:hover {
+  background-color: #1d4ed8;
+}
+
+.sc-btn-primary:active {
+  transform: scale(0.98);
 }
 
 .sc-btn-secondary {
-  @apply sc-btn bg-sc-bg-tertiary text-white border border-sc-border-light hover:bg-[#2e365c];
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-weight: 700;
+  transition: all 0.2s;
+  cursor: pointer;
+  border-radius: 0.5rem;
+  background-color: var(--sc-bg-tertiary);
+  color: white;
+  border: 1px solid var(--sc-border-light);
+}
+
+.sc-btn-secondary:hover {
+  background-color: #2e365c;
 }
 
 .sc-btn-outline {
-  @apply sc-btn bg-transparent text-sc-text-secondary border border-sc-border-light hover:bg-sc-bg-tertiary hover:text-white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-weight: 700;
+  transition: all 0.2s;
+  cursor: pointer;
+  border-radius: 0.5rem;
+  background-color: transparent;
+  color: var(--sc-text-secondary);
+  border: 1px solid var(--sc-border-light);
+}
+
+.sc-btn-outline:hover {
+  background-color: var(--sc-bg-tertiary);
+  color: white;
 }
 
 /* Inputs */
@@ -235,48 +309,133 @@ body {
 
 /* Badges */
 .sc-badge {
-  @apply inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-xs font-medium border transition-colors;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.125rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid transparent;
+  transition: color 0.2s;
 }
 
 .sc-badge-success {
-  @apply sc-badge bg-green-500/10 text-green-400 border-green-500/20;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.125rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background-color: rgba(34, 197, 94, 0.1);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.2);
 }
 
 .sc-badge-warning {
-  @apply sc-badge bg-sc-accent-yellow/10 text-sc-accent-yellow border-sc-accent-yellow/20;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.125rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background-color: rgba(234, 179, 8, 0.1);
+  color: var(--sc-accent-yellow);
+  border: 1px solid rgba(234, 179, 8, 0.2);
 }
 
 .sc-badge-error {
-  @apply sc-badge bg-red-500/10 text-red-400 border-red-500/20;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.125rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
 /* Sidebar Links */
 .sc-sidebar-link {
-  @apply flex items-center gap-3 px-3 py-3 rounded-lg text-[#929bc9] hover:bg-sc-bg-tertiary hover:text-white transition-colors text-sm font-medium;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  color: #929bc9;
+  transition: all 0.2s;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.sc-sidebar-link:hover {
+  background-color: var(--sc-bg-tertiary);
+  color: white;
 }
 
 .sc-sidebar-link-active {
-  @apply flex items-center gap-3 px-3 py-3 rounded-lg bg-sc-accent-blue/10 border border-sc-accent-blue/20 text-white text-sm font-bold;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  background-color: rgba(19, 55, 236, 0.1);
+  border: 1px solid rgba(19, 55, 236, 0.2);
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 700;
 }
 
 /* Tables */
 .sc-table {
-  @apply w-full text-left border-collapse;
+  width: 100%;
+  text-align: left;
+  border-collapse: collapse;
 }
 
 .sc-table th {
-  @apply p-4 text-xs font-bold text-sc-text-secondary uppercase tracking-wider bg-sc-bg-tertiary;
+  padding: 1rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--sc-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background-color: var(--sc-bg-tertiary);
 }
 
 .sc-table td {
-  @apply p-4 text-sm border-b border-sc-border;
+  padding: 1rem;
+  font-size: 0.875rem;
+  border-bottom: 1px solid var(--sc-border);
 }
 
 .sc-table tbody tr {
-  @apply hover:bg-sc-bg-tertiary transition-colors;
+  transition: background-color 0.2s;
+}
+
+.sc-table tbody tr:hover {
+  background-color: var(--sc-bg-tertiary);
 }
 
 /* Upload Area */
 .sc-upload {
-  @apply flex flex-col items-center gap-4 rounded-xl border-2 border-dashed border-sc-border-light bg-[#151a2d] px-6 py-10 hover:border-sc-accent-blue/50 hover:bg-[#1a2036] transition-all cursor-pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  border-radius: 0.75rem;
+  border: 2px dashed var(--sc-border-light);
+  background-color: #151a2d;
+  padding: 2.5rem 1.5rem;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.sc-upload:hover {
+  border-color: rgba(19, 55, 236, 0.5);
+  background-color: #1a2036;
 }

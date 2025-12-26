@@ -3,131 +3,225 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
 
 /**
  * @title IjazahNFT
- * @dev NFT contract for Ijazah (Certificate) tokens
+ * @dev NFT-based Digital Diploma Registry with issuance, revocation, and verification
+ * @notice Implements PRD specification for blockchain-based diploma system
  */
-contract IjazahNFT is ERC721, ERC721URIStorage, Ownable {
+contract IjazahNFT is ERC721, ERC721URIStorage, AccessControl {
+    /// @notice Role identifier for authorized diploma issuers
+    bytes32 public constant ISSUER_ROLE = keccak256("ISSUER_ROLE");
+
+    /// @notice Auto-incrementing token ID counter
     uint256 private _nextTokenId;
 
-    // Mapping from token ID to certificate data hash
-    mapping(uint256 => bytes32) public certificateHashes;
-    
-    // Mapping from token ID to issuer address
-    mapping(uint256 => address) public issuers;
-    
-    // Mapping from token ID to issue timestamp
-    mapping(uint256 => uint256) public issueDates;
-    
-    // Event emitted when a new certificate is minted
-    event CertificateMinted(
-        uint256 indexed tokenId,
+    /// @notice Diploma data structure matching PRD specification
+    struct Diploma {
+        bytes32 documentHash; // SHA-256 hash of the diploma document
+        string cid; // IPFS CID or storage URL
+        address issuer; // Address that issued the diploma
+        bytes signature; // ECDSA signature from issuer
+        uint256 timestamp; // Block timestamp when issued
+        bool isActive; // Active status (false = revoked)
+    }
+
+    /// @notice Mapping from token ID to Diploma data
+    mapping(uint256 => Diploma) public diplomas;
+
+    /// @notice Mapping from token ID to revocation reason
+    mapping(uint256 => string) public revocationReasons;
+
+    /// @notice Emitted when a new diploma is issued
+    event DiplomaIssued(
+        uint256 indexed diplomaId,
         address indexed recipient,
         address indexed issuer,
-        bytes32 certificateHash,
-        string tokenURI
+        bytes32 documentHash,
+        string cid,
+        uint256 timestamp
     );
 
-    constructor(address initialOwner) 
-        ERC721("Ijazah Certificate", "IJAZAH")
-        Ownable(initialOwner)
-    {}
+    /// @notice Emitted when a diploma is revoked
+    event DiplomaRevoked(
+        uint256 indexed diplomaId,
+        address indexed revoker,
+        string reason,
+        uint256 timestamp
+    );
 
     /**
-     * @dev Mint a new certificate NFT
-     * @param recipient Address to receive the certificate
-     * @param certificateHash Hash of the certificate data (for verification)
-     * @param uri Metadata URI for the certificate
-     * @return newTokenId The ID of the newly minted token
+     * @dev Constructor sets up the contract with initial admin and issuer roles
+     * @param initialAdmin Address that will have DEFAULT_ADMIN_ROLE and ISSUER_ROLE
      */
-    function mintCertificate(
-        address recipient,
-        bytes32 certificateHash,
-        string memory uri
-    ) public onlyOwner returns (uint256) {
-        uint256 newTokenId = _nextTokenId++;
+    constructor(address initialAdmin) ERC721("Ijazah Digital", "IJAZAH") {
+        _grantRole(DEFAULT_ADMIN_ROLE, initialAdmin);
+        _grantRole(ISSUER_ROLE, initialAdmin);
+    }
 
-        _safeMint(recipient, newTokenId);
-        _setTokenURI(newTokenId, uri);
-        
-        certificateHashes[newTokenId] = certificateHash;
-        issuers[newTokenId] = msg.sender;
-        issueDates[newTokenId] = block.timestamp;
+    /**
+     * @notice Issue a new diploma as an NFT
+     * @dev Only accounts with ISSUER_ROLE can call this function
+     * @param _recipient Address to receive the diploma NFT
+     * @param _documentHash SHA-256 hash of the diploma document
+     * @param _cid IPFS CID or storage URL for encrypted diploma
+     * @param _signature ECDSA signature from the issuer
+     * @return diplomaId The ID of the newly issued diploma
+     */
+    function issueDiploma(
+        address _recipient,
+        bytes32 _documentHash,
+        string memory _cid,
+        bytes memory _signature
+    ) external onlyRole(ISSUER_ROLE) returns (uint256) {
+        uint256 diplomaId = _nextTokenId++;
 
-        emit CertificateMinted(
-            newTokenId,
-            recipient,
+        // Mint the NFT to recipient
+        _safeMint(_recipient, diplomaId);
+        _setTokenURI(diplomaId, _cid);
+
+        // Store diploma data
+        diplomas[diplomaId] = Diploma({
+            documentHash: _documentHash,
+            cid: _cid,
+            issuer: msg.sender,
+            signature: _signature,
+            timestamp: block.timestamp,
+            isActive: true
+        });
+
+        emit DiplomaIssued(
+            diplomaId,
+            _recipient,
             msg.sender,
-            certificateHash,
-            uri
+            _documentHash,
+            _cid,
+            block.timestamp
         );
 
-        return newTokenId;
+        return diplomaId;
     }
 
     /**
-     * @dev Verify a certificate by comparing its hash
-     * @param tokenId The token ID to verify
-     * @param certificateHash The hash to compare against
-     * @return bool True if the hashes match
+     * @notice Revoke a previously issued diploma
+     * @dev Only accounts with ISSUER_ROLE can revoke diplomas
+     * @param _diplomaId ID of the diploma to revoke
+     * @param _reason Reason for revocation (max 500 characters recommended)
      */
-    function verifyCertificate(
-        uint256 tokenId,
-        bytes32 certificateHash
-    ) public view returns (bool) {
-        require(_ownerOf(tokenId) != address(0), "Certificate does not exist");
-        return certificateHashes[tokenId] == certificateHash;
+    function revokeDiploma(
+        uint256 _diplomaId,
+        string memory _reason
+    ) external onlyRole(ISSUER_ROLE) {
+        require(_ownerOf(_diplomaId) != address(0), "Diploma does not exist");
+        require(diplomas[_diplomaId].isActive, "Diploma already revoked");
+
+        diplomas[_diplomaId].isActive = false;
+        revocationReasons[_diplomaId] = _reason;
+
+        emit DiplomaRevoked(_diplomaId, msg.sender, _reason, block.timestamp);
     }
 
     /**
-     * @dev Get certificate details
-     * @param tokenId The token ID
-     * @return owner Owner address
-     * @return issuer Issuer address
-     * @return issueDate Timestamp when issued
-     * @return certificateHash Hash of certificate data
+     * @notice Verify a diploma's validity and status
+     * @dev Returns whether the diploma exists and is not revoked
+     * @param _diplomaId ID of the diploma to verify
+     * @return isValid True if the diploma exists
+     * @return isActive True if the diploma has not been revoked
      */
-    function getCertificateDetails(uint256 tokenId)
-        public
-        view
-        returns (
-            address owner,
-            address issuer,
-            uint256 issueDate,
-            bytes32 certificateHash
-        )
-    {
-        require(_ownerOf(tokenId) != address(0), "Certificate does not exist");
-        
-        return (
-            ownerOf(tokenId),
-            issuers[tokenId],
-            issueDates[tokenId],
-            certificateHashes[tokenId]
-        );
+    function verifyDiploma(
+        uint256 _diplomaId
+    ) external view returns (bool isValid, bool isActive) {
+        // Check if diploma exists (owner is not zero address)
+        isValid = _ownerOf(_diplomaId) != address(0);
+
+        if (isValid) {
+            isActive = diplomas[_diplomaId].isActive;
+        } else {
+            isActive = false;
+        }
+
+        return (isValid, isActive);
     }
 
     /**
-     * @dev Override required by Solidity
+     * @notice Get complete diploma details
+     * @param _diplomaId ID of the diploma
+     * @return owner Current owner of the diploma NFT
+     * @return diploma Complete diploma data struct
      */
-    function tokenURI(uint256 tokenId)
-        public
-        view
-        override(ERC721, ERC721URIStorage)
-        returns (string memory)
-    {
+    function getDiplomaDetails(
+        uint256 _diplomaId
+    ) external view returns (address owner, Diploma memory diploma) {
+        require(_ownerOf(_diplomaId) != address(0), "Diploma does not exist");
+        return (ownerOf(_diplomaId), diplomas[_diplomaId]);
+    }
+
+    /**
+     * @notice Verify diploma hash matches stored hash
+     * @param _diplomaId ID of the diploma
+     * @param _documentHash Hash to compare against stored hash
+     * @return True if hashes match
+     */
+    function verifyHash(
+        uint256 _diplomaId,
+        bytes32 _documentHash
+    ) external view returns (bool) {
+        require(_ownerOf(_diplomaId) != address(0), "Diploma does not exist");
+        return diplomas[_diplomaId].documentHash == _documentHash;
+    }
+
+    /**
+     * @notice Get the total number of diplomas issued
+     * @return Total count of diplomas (includes revoked)
+     */
+    function getTotalDiplomas() external view returns (uint256) {
+        return _nextTokenId;
+    }
+
+    /**
+     * @notice Add a new issuer
+     * @dev Only DEFAULT_ADMIN_ROLE can add issuers
+     * @param _issuer Address to grant ISSUER_ROLE
+     */
+    function addIssuer(address _issuer) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _grantRole(ISSUER_ROLE, _issuer);
+    }
+
+    /**
+     * @notice Remove an issuer
+     * @dev Only DEFAULT_ADMIN_ROLE can remove issuers
+     * @param _issuer Address to revoke ISSUER_ROLE from
+     */
+    function removeIssuer(
+        address _issuer
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _revokeRole(ISSUER_ROLE, _issuer);
+    }
+
+    /**
+     * @notice Check if an address is an authorized issuer
+     * @param _address Address to check
+     * @return True if address has ISSUER_ROLE
+     */
+    function isIssuer(address _address) external view returns (bool) {
+        return hasRole(ISSUER_ROLE, _address);
+    }
+
+    // ============ Required Overrides ============
+
+    function tokenURI(
+        uint256 tokenId
+    ) public view override(ERC721, ERC721URIStorage) returns (string memory) {
         return super.tokenURI(tokenId);
     }
 
-    /**
-     * @dev Override required by Solidity
-     */
-    function supportsInterface(bytes4 interfaceId)
+    function supportsInterface(
+        bytes4 interfaceId
+    )
         public
         view
-        override(ERC721, ERC721URIStorage)
+        override(ERC721, ERC721URIStorage, AccessControl)
         returns (bool)
     {
         return super.supportsInterface(interfaceId);

@@ -17,8 +17,11 @@ import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
 import { Route as DashboardWalletRouteImport } from './routes/dashboard/wallet'
 import { Route as DashboardVerifyRouteImport } from './routes/dashboard/verify'
 import { Route as DashboardSettingsRouteImport } from './routes/dashboard/settings'
+import { Route as DashboardRevokeRouteImport } from './routes/dashboard/revoke'
 import { Route as DashboardRecordsRouteImport } from './routes/dashboard/records'
 import { Route as DashboardMintRouteImport } from './routes/dashboard/mint'
+import { Route as ApiUploadRouteImport } from './routes/api/upload'
+import { Route as ApiFilesCidRouteImport } from './routes/api/files/$cid'
 
 const VerifyRoute = VerifyRouteImport.update({
   id: '/verify',
@@ -60,6 +63,11 @@ const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardRevokeRoute = DashboardRevokeRouteImport.update({
+  id: '/revoke',
+  path: '/revoke',
+  getParentRoute: () => DashboardRoute,
+} as any)
 const DashboardRecordsRoute = DashboardRecordsRouteImport.update({
   id: '/records',
   path: '/records',
@@ -70,29 +78,45 @@ const DashboardMintRoute = DashboardMintRouteImport.update({
   path: '/mint',
   getParentRoute: () => DashboardRoute,
 } as any)
+const ApiUploadRoute = ApiUploadRouteImport.update({
+  id: '/api/upload',
+  path: '/api/upload',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFilesCidRoute = ApiFilesCidRouteImport.update({
+  id: '/api/files/$cid',
+  path: '/api/files/$cid',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRouteWithChildren
   '/ledger': typeof LedgerRoute
   '/verify': typeof VerifyRoute
+  '/api/upload': typeof ApiUploadRoute
   '/dashboard/mint': typeof DashboardMintRoute
   '/dashboard/records': typeof DashboardRecordsRoute
+  '/dashboard/revoke': typeof DashboardRevokeRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/verify': typeof DashboardVerifyRoute
   '/dashboard/wallet': typeof DashboardWalletRoute
   '/dashboard/': typeof DashboardIndexRoute
+  '/api/files/$cid': typeof ApiFilesCidRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/ledger': typeof LedgerRoute
   '/verify': typeof VerifyRoute
+  '/api/upload': typeof ApiUploadRoute
   '/dashboard/mint': typeof DashboardMintRoute
   '/dashboard/records': typeof DashboardRecordsRoute
+  '/dashboard/revoke': typeof DashboardRevokeRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/verify': typeof DashboardVerifyRoute
   '/dashboard/wallet': typeof DashboardWalletRoute
   '/dashboard': typeof DashboardIndexRoute
+  '/api/files/$cid': typeof ApiFilesCidRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -100,12 +124,15 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRouteWithChildren
   '/ledger': typeof LedgerRoute
   '/verify': typeof VerifyRoute
+  '/api/upload': typeof ApiUploadRoute
   '/dashboard/mint': typeof DashboardMintRoute
   '/dashboard/records': typeof DashboardRecordsRoute
+  '/dashboard/revoke': typeof DashboardRevokeRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/verify': typeof DashboardVerifyRoute
   '/dashboard/wallet': typeof DashboardWalletRoute
   '/dashboard/': typeof DashboardIndexRoute
+  '/api/files/$cid': typeof ApiFilesCidRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -114,35 +141,44 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/ledger'
     | '/verify'
+    | '/api/upload'
     | '/dashboard/mint'
     | '/dashboard/records'
+    | '/dashboard/revoke'
     | '/dashboard/settings'
     | '/dashboard/verify'
     | '/dashboard/wallet'
     | '/dashboard/'
+    | '/api/files/$cid'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/ledger'
     | '/verify'
+    | '/api/upload'
     | '/dashboard/mint'
     | '/dashboard/records'
+    | '/dashboard/revoke'
     | '/dashboard/settings'
     | '/dashboard/verify'
     | '/dashboard/wallet'
     | '/dashboard'
+    | '/api/files/$cid'
   id:
     | '__root__'
     | '/'
     | '/dashboard'
     | '/ledger'
     | '/verify'
+    | '/api/upload'
     | '/dashboard/mint'
     | '/dashboard/records'
+    | '/dashboard/revoke'
     | '/dashboard/settings'
     | '/dashboard/verify'
     | '/dashboard/wallet'
     | '/dashboard/'
+    | '/api/files/$cid'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -150,6 +186,8 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRouteWithChildren
   LedgerRoute: typeof LedgerRoute
   VerifyRoute: typeof VerifyRoute
+  ApiUploadRoute: typeof ApiUploadRoute
+  ApiFilesCidRoute: typeof ApiFilesCidRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -210,6 +248,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardSettingsRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/dashboard/revoke': {
+      id: '/dashboard/revoke'
+      path: '/revoke'
+      fullPath: '/dashboard/revoke'
+      preLoaderRoute: typeof DashboardRevokeRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/dashboard/records': {
       id: '/dashboard/records'
       path: '/records'
@@ -224,12 +269,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardMintRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/api/upload': {
+      id: '/api/upload'
+      path: '/api/upload'
+      fullPath: '/api/upload'
+      preLoaderRoute: typeof ApiUploadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/files/$cid': {
+      id: '/api/files/$cid'
+      path: '/api/files/$cid'
+      fullPath: '/api/files/$cid'
+      preLoaderRoute: typeof ApiFilesCidRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 interface DashboardRouteChildren {
   DashboardMintRoute: typeof DashboardMintRoute
   DashboardRecordsRoute: typeof DashboardRecordsRoute
+  DashboardRevokeRoute: typeof DashboardRevokeRoute
   DashboardSettingsRoute: typeof DashboardSettingsRoute
   DashboardVerifyRoute: typeof DashboardVerifyRoute
   DashboardWalletRoute: typeof DashboardWalletRoute
@@ -239,6 +299,7 @@ interface DashboardRouteChildren {
 const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardMintRoute: DashboardMintRoute,
   DashboardRecordsRoute: DashboardRecordsRoute,
+  DashboardRevokeRoute: DashboardRevokeRoute,
   DashboardSettingsRoute: DashboardSettingsRoute,
   DashboardVerifyRoute: DashboardVerifyRoute,
   DashboardWalletRoute: DashboardWalletRoute,
@@ -254,6 +315,8 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRouteWithChildren,
   LedgerRoute: LedgerRoute,
   VerifyRoute: VerifyRoute,
+  ApiUploadRoute: ApiUploadRoute,
+  ApiFilesCidRoute: ApiFilesCidRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

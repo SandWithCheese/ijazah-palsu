@@ -2,7 +2,6 @@ import { getWeb3 } from './client'
 import type { Contract } from 'web3'
 
 // Import contract ABIs (will be generated after compilation)
-// These will be available after running `npm run compile` in contracts directory
 let IjazahNFTArtifact: any = null
 let deployments: any = null
 
@@ -64,12 +63,26 @@ export const getIjazahNFTContract = async (
 }
 
 /**
- * Mint a new certificate NFT
+ * Get contract address
  */
-export const mintCertificate = async (
+export const getContractAddress = async (
+  networkId?: string,
+): Promise<string | null> => {
+  await loadArtifacts()
+  const network = networkId || 'development'
+  return deployments?.[network]?.IjazahNFT?.address || null
+}
+
+// ============ Diploma Operations ============
+
+/**
+ * Issue a new diploma (matches new contract interface)
+ */
+export const issueDiploma = async (
   recipientAddress: string,
-  certificateHash: string,
-  tokenURI: string,
+  documentHash: string,
+  cid: string,
+  signature: string,
   fromAddress: string,
 ): Promise<any> => {
   const contract = await getIjazahNFTContract()
@@ -80,22 +93,76 @@ export const mintCertificate = async (
 
   try {
     const receipt = await contract.methods
-      .mintCertificate(recipientAddress, certificateHash, tokenURI)
+      .issueDiploma(recipientAddress, documentHash, cid, signature)
       .send({ from: fromAddress })
 
     return receipt
   } catch (error) {
-    console.error('Error minting certificate:', error)
+    console.error('Error issuing diploma:', error)
     throw error
   }
 }
 
 /**
- * Verify a certificate
+ * Revoke a diploma
  */
-export const verifyCertificate = async (
-  tokenId: number,
-  certificateHash: string,
+export const revokeDiploma = async (
+  diplomaId: number,
+  reason: string,
+  fromAddress: string,
+): Promise<any> => {
+  const contract = await getIjazahNFTContract()
+
+  if (!contract) {
+    throw new Error('Contract not initialized')
+  }
+
+  try {
+    const receipt = await contract.methods
+      .revokeDiploma(diplomaId, reason)
+      .send({ from: fromAddress })
+
+    return receipt
+  } catch (error) {
+    console.error('Error revoking diploma:', error)
+    throw error
+  }
+}
+
+/**
+ * Verify a diploma - returns (isValid, isActive)
+ */
+export const verifyDiploma = async (
+  diplomaId: number,
+): Promise<{ isValid: boolean; isActive: boolean }> => {
+  const contract = await getIjazahNFTContract()
+
+  if (!contract) {
+    throw new Error('Contract not initialized')
+  }
+
+  try {
+    const result = (await contract.methods.verifyDiploma(diplomaId).call()) as [
+      boolean,
+      boolean,
+    ]
+
+    return {
+      isValid: Boolean(result[0]),
+      isActive: Boolean(result[1]),
+    }
+  } catch (error) {
+    console.error('Error verifying diploma:', error)
+    throw error
+  }
+}
+
+/**
+ * Verify diploma hash matches stored hash
+ */
+export const verifyHash = async (
+  diplomaId: number,
+  documentHash: string,
 ): Promise<boolean> => {
   const contract = await getIjazahNFTContract()
 
@@ -104,27 +171,30 @@ export const verifyCertificate = async (
   }
 
   try {
-    const isValid = await contract.methods
-      .verifyCertificate(tokenId, certificateHash)
+    const isMatch = await contract.methods
+      .verifyHash(diplomaId, documentHash)
       .call()
 
-    return Boolean(isValid)
+    return Boolean(isMatch)
   } catch (error) {
-    console.error('Error verifying certificate:', error)
+    console.error('Error verifying hash:', error)
     throw error
   }
 }
 
 /**
- * Get certificate details
+ * Get complete diploma details
  */
-export const getCertificateDetails = async (
-  tokenId: number,
+export const getDiplomaDetails = async (
+  diplomaId: number,
 ): Promise<{
   owner: string
+  documentHash: string
+  cid: string
   issuer: string
-  issueDate: number
-  certificateHash: string
+  signature: string
+  timestamp: number
+  isActive: boolean
 } | null> => {
   const contract = await getIjazahNFTContract()
 
@@ -133,26 +203,34 @@ export const getCertificateDetails = async (
   }
 
   try {
-    const details = (await contract.methods
-      .getCertificateDetails(tokenId)
-      .call()) as [string, string, bigint, string]
+    const result = (await contract.methods
+      .getDiplomaDetails(diplomaId)
+      .call()) as [string, any]
+
+    const owner = result[0]
+    const diploma = result[1]
 
     return {
-      owner: details[0],
-      issuer: details[1],
-      issueDate: Number(details[2]),
-      certificateHash: details[3],
+      owner,
+      documentHash: diploma.documentHash,
+      cid: diploma.cid,
+      issuer: diploma.issuer,
+      signature: diploma.signature,
+      timestamp: Number(diploma.timestamp),
+      isActive: Boolean(diploma.isActive),
     }
   } catch (error) {
-    console.error('Error getting certificate details:', error)
+    console.error('Error getting diploma details:', error)
     throw error
   }
 }
 
 /**
- * Get token URI (metadata)
+ * Get token URI (CID)
  */
-export const getTokenURI = async (tokenId: number): Promise<string | null> => {
+export const getTokenURI = async (
+  diplomaId: number,
+): Promise<string | null> => {
   const contract = await getIjazahNFTContract()
 
   if (!contract) {
@@ -160,7 +238,7 @@ export const getTokenURI = async (tokenId: number): Promise<string | null> => {
   }
 
   try {
-    const uri = await contract.methods.tokenURI(tokenId).call()
+    const uri = await contract.methods.tokenURI(diplomaId).call()
     return String(uri)
   } catch (error) {
     console.error('Error getting token URI:', error)
@@ -169,11 +247,9 @@ export const getTokenURI = async (tokenId: number): Promise<string | null> => {
 }
 
 /**
- * Get all tokens owned by an address
+ * Get total number of diplomas issued
  */
-export const getOwnedTokens = async (
-  ownerAddress: string,
-): Promise<number[]> => {
+export const getTotalDiplomas = async (): Promise<number> => {
   const contract = await getIjazahNFTContract()
 
   if (!contract) {
@@ -181,32 +257,78 @@ export const getOwnedTokens = async (
   }
 
   try {
-    // This is a simple implementation
-    // For production, consider using events or subgraph
-    const balance = await contract.methods.balanceOf(ownerAddress).call()
-    const tokens: number[] = []
-
-    // Note: This is not efficient for large numbers of tokens
-    // Consider implementing a better indexing solution
-    for (let i = 0; i < Number(balance); i++) {
-      const tokenId = await contract.methods
-        .tokenOfOwnerByIndex(ownerAddress, i)
-        .call()
-      tokens.push(Number(tokenId))
-    }
-
-    return tokens
+    const total = await contract.methods.getTotalDiplomas().call()
+    return Number(total)
   } catch (error) {
-    console.error('Error getting owned tokens:', error)
-    return []
+    console.error('Error getting total diplomas:', error)
+    throw error
   }
 }
 
 /**
- * Create a hash for certificate data
+ * Check if address is an authorized issuer
  */
-export const createCertificateHash = (certificateData: any): string => {
+export const isIssuer = async (address: string): Promise<boolean> => {
+  const contract = await getIjazahNFTContract()
+
+  if (!contract) {
+    throw new Error('Contract not initialized')
+  }
+
+  try {
+    const result = await contract.methods.isIssuer(address).call()
+    return Boolean(result)
+  } catch (error) {
+    console.error('Error checking issuer status:', error)
+    throw error
+  }
+}
+
+/**
+ * Get revocation reason for a diploma
+ */
+export const getRevocationReason = async (
+  diplomaId: number,
+): Promise<string> => {
+  const contract = await getIjazahNFTContract()
+
+  if (!contract) {
+    throw new Error('Contract not initialized')
+  }
+
+  try {
+    const reason = await contract.methods.revocationReasons(diplomaId).call()
+    return String(reason)
+  } catch (error) {
+    console.error('Error getting revocation reason:', error)
+    throw error
+  }
+}
+
+// ============ Utility Functions ============
+
+/**
+ * Create a hash for document data using Web3
+ */
+export const createDocumentHash = (data: string): string => {
   const web3 = getWeb3()
-  const dataString = JSON.stringify(certificateData)
-  return web3.utils.keccak256(dataString)
+  return web3.utils.keccak256(data)
+}
+
+/**
+ * Sign message with wallet
+ */
+export const signMessage = async (
+  message: string,
+  fromAddress: string,
+): Promise<string> => {
+  const web3 = getWeb3()
+
+  try {
+    const signature = await web3.eth.personal.sign(message, fromAddress, '')
+    return signature
+  } catch (error) {
+    console.error('Error signing message:', error)
+    throw error
+  }
 }
