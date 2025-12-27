@@ -30,6 +30,15 @@ contract IjazahNFT is ERC721, ERC721URIStorage, AccessControl {
     /// @notice Mapping from token ID to Diploma data
     mapping(uint256 => Diploma) public diplomas;
 
+    /// @notice Student metadata structure for frontend display
+    struct DiplomaMetadata {
+        string studentName;
+        string nim;
+    }
+
+    /// @notice Mapping from token ID to student metadata
+    mapping(uint256 => DiplomaMetadata) public diplomaMetadata;
+
     /// @notice Mapping from token ID to revocation reason
     mapping(uint256 => string) public revocationReasons;
 
@@ -40,6 +49,8 @@ contract IjazahNFT is ERC721, ERC721URIStorage, AccessControl {
         address indexed issuer,
         bytes32 documentHash,
         string cid,
+        string studentName,
+        string nim,
         uint256 timestamp
     );
 
@@ -67,13 +78,17 @@ contract IjazahNFT is ERC721, ERC721URIStorage, AccessControl {
      * @param _documentHash SHA-256 hash of the diploma document
      * @param _cid IPFS CID or storage URL for encrypted diploma
      * @param _signature ECDSA signature from the issuer
+     * @param _studentName Name of the student
+     * @param _nim Student ID number (NIM)
      * @return diplomaId The ID of the newly issued diploma
      */
     function issueDiploma(
         address _recipient,
         bytes32 _documentHash,
         string memory _cid,
-        bytes memory _signature
+        bytes memory _signature,
+        string memory _studentName,
+        string memory _nim
     ) external onlyRole(ISSUER_ROLE) returns (uint256) {
         uint256 diplomaId = _nextTokenId++;
 
@@ -91,12 +106,20 @@ contract IjazahNFT is ERC721, ERC721URIStorage, AccessControl {
             isActive: true
         });
 
+        // Store student metadata
+        diplomaMetadata[diplomaId] = DiplomaMetadata({
+            studentName: _studentName,
+            nim: _nim
+        });
+
         emit DiplomaIssued(
             diplomaId,
             _recipient,
             msg.sender,
             _documentHash,
             _cid,
+            _studentName,
+            _nim,
             block.timestamp
         );
 
@@ -155,6 +178,20 @@ contract IjazahNFT is ERC721, ERC721URIStorage, AccessControl {
     ) external view returns (address owner, Diploma memory diploma) {
         require(_ownerOf(_diplomaId) != address(0), "Diploma does not exist");
         return (ownerOf(_diplomaId), diplomas[_diplomaId]);
+    }
+
+    /**
+     * @notice Get diploma metadata (student info)
+     * @param _diplomaId ID of the diploma
+     * @return studentName Name of the student
+     * @return nim Student ID number
+     */
+    function getDiplomaMetadata(
+        uint256 _diplomaId
+    ) external view returns (string memory studentName, string memory nim) {
+        require(_ownerOf(_diplomaId) != address(0), "Diploma does not exist");
+        DiplomaMetadata memory metadata = diplomaMetadata[_diplomaId];
+        return (metadata.studentName, metadata.nim);
     }
 
     /**

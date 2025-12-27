@@ -32,8 +32,9 @@ interface WalletContextType {
 const WalletContext = createContext<WalletContextType | undefined>(undefined)
 
 export function WalletProvider({ children }: { children: ReactNode }) {
+  const [isMounted, setIsMounted] = useState(false)
   const [address, setAddress] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
   const [networkId, setNetworkId] = useState<number | null>(null)
   const [correctNetwork, setCorrectNetwork] = useState(false)
   const [issuerStatus, setIssuerStatus] = useState(false)
@@ -50,11 +51,24 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // Handle client-side mounting to prevent hydration mismatch
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
   // Initialize connection check
   useEffect(() => {
+    if (!isMounted) return
+
     const checkConnection = async () => {
       setIsLoading(true)
       try {
+        // Check if MetaMask is available
+        if (typeof window === 'undefined' || !(window as any).ethereum) {
+          setIsLoading(false)
+          return
+        }
+
         // Check if already connected
         const account = await getCurrentAccount()
         if (account) {
@@ -74,11 +88,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    // Only run on client side
-    if (typeof window !== 'undefined') {
-      checkConnection()
+    checkConnection()
 
-      // Listen for account changes
+    // Listen for account changes
+    if (typeof window !== 'undefined' && (window as any).ethereum) {
       onAccountsChanged(async (accounts: string[]) => {
         if (accounts.length === 0) {
           setAddress(null)
@@ -97,7 +110,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         setCorrectNetwork(isCorrect)
       })
     }
-  }, [])
+  }, [isMounted])
 
   const connect = async () => {
     setIsLoading(true)

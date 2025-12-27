@@ -1,78 +1,87 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Search,
   Download,
   Filter,
   Link as LinkIcon,
   AlertTriangle,
+  Loader2,
+  XCircle,
 } from 'lucide-react'
 
 export const Route = createFileRoute('/ledger')({
   component: PublicLedgerPage,
 })
 
+interface DiplomaEntry {
+  id: number
+  owner: string
+  issuer: string
+  timestamp: number
+  isActive: boolean
+  studentName: string
+  nim: string
+  cid: string
+}
+
 function PublicLedgerPage() {
   const [filter, setFilter] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const [diplomas, setDiplomas] = useState<DiplomaEntry[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const transactions = [
-    {
-      txHash: '0x71C...9A2',
-      blockNo: '18,293,044',
-      timestamp: 'Oct 24, 2023',
-      timestampTime: '14:02:11 UTC',
-      diplomaId: 'DIP-2023-8849',
-      status: 'active',
-    },
-    {
-      txHash: '0x3B2...1C4',
-      blockNo: '18,293,010',
-      timestamp: 'Oct 24, 2023',
-      timestampTime: '13:55:04 UTC',
-      diplomaId: 'DIP-2023-8848',
-      status: 'active',
-    },
-    {
-      txHash: '0x9A1...7D2',
-      blockNo: '18,292,881',
-      timestamp: 'Oct 24, 2023',
-      timestampTime: '12:30:15 UTC',
-      diplomaId: 'DIP-2022-1044',
-      status: 'revoked',
-    },
-    {
-      txHash: '0x4F5...8E1',
-      blockNo: '18,292,240',
-      timestamp: 'Oct 24, 2023',
-      timestampTime: '10:15:55 UTC',
-      diplomaId: 'DIP-2023-8847',
-      status: 'active',
-    },
-    {
-      txHash: '0x2C9...3B5',
-      blockNo: '18,291,102',
-      timestamp: 'Oct 24, 2023',
-      timestampTime: '09:45:10 UTC',
-      diplomaId: 'DIP-2023-8846',
-      status: 'active',
-    },
-    {
-      txHash: '0xD8E...9F2',
-      blockNo: '18,290,050',
-      timestamp: 'Oct 23, 2023',
-      timestampTime: '18:22:45 UTC',
-      diplomaId: 'DIP-2023-8845',
-      status: 'active',
-    },
-  ]
+  useEffect(() => {
+    const fetchDiplomas = async () => {
+      try {
+        const { getAllDiplomas } = await import('../lib/web3/contracts')
+        const allDiplomas = await getAllDiplomas()
+        setDiplomas(allDiplomas)
+      } catch (err: any) {
+        console.error('Error fetching diplomas:', err)
+        setError(err.message || 'Failed to fetch ledger data')
+      } finally {
+        setIsLoading(false)
+      }
+    }
 
-  const filteredTransactions = transactions.filter((tx) => {
-    const matchesFilter = filter === 'all' || tx.status === filter
+    fetchDiplomas()
+  }, [])
+
+  const formatDate = (timestamp: number) => {
+    const date = new Date(timestamp * 1000)
+    return {
+      date: date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      }),
+      time:
+        date.toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false,
+        }) + ' UTC',
+    }
+  }
+
+  const truncateAddress = (address: string) => {
+    if (!address) return ''
+    return `${address.slice(0, 6)}...${address.slice(-4)}`
+  }
+
+  const filteredDiplomas = diplomas.filter((d) => {
+    const matchesFilter =
+      filter === 'all' ||
+      (filter === 'active' && d.isActive) ||
+      (filter === 'revoked' && !d.isActive)
+    const search = searchQuery.toLowerCase()
     const matchesSearch =
-      tx.txHash.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tx.diplomaId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tx.blockNo.includes(searchQuery)
+      d.id.toString().includes(search) ||
+      d.studentName.toLowerCase().includes(search) ||
+      d.nim.toLowerCase().includes(search)
     return matchesFilter && matchesSearch
   })
 
@@ -99,8 +108,7 @@ function PublicLedgerPage() {
                 </h1>
                 <p className="text-[#929bc9] max-w-2xl leading-relaxed">
                   A real-time, immutable record of all academic certifications
-                  issued and revoked on the Serti-Chain network. Verified by
-                  Ethereum consensus.
+                  issued and revoked on the blockchain network.
                 </p>
               </div>
               <button className="sc-btn-primary h-12 px-6">
@@ -116,7 +124,7 @@ function PublicLedgerPage() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by Transaction Hash, Block, or Diploma ID..."
+                placeholder="Search by Diploma ID, Student Name, or NIM..."
                 className="w-full bg-[#111422] border border-[#323b67] rounded-xl h-14 pl-12 pr-4 text-white placeholder-[#5a648b] focus:ring-2 focus:ring-sc-accent-blue focus:border-transparent outline-none transition-all shadow-lg"
               />
             </div>
@@ -132,7 +140,7 @@ function PublicLedgerPage() {
                       : 'text-[#929bc9] border-transparent hover:text-white'
                   }`}
                 >
-                  All Transactions
+                  All Diplomas
                 </button>
                 <button
                   onClick={() => setFilter('active')}
@@ -143,7 +151,7 @@ function PublicLedgerPage() {
                   }`}
                 >
                   <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                  Active Status
+                  Active
                 </button>
                 <button
                   onClick={() => setFilter('revoked')}
@@ -154,7 +162,7 @@ function PublicLedgerPage() {
                   }`}
                 >
                   <div className="w-2 h-2 bg-red-400 rounded-full"></div>
-                  Revoked Status
+                  Revoked
                 </button>
               </div>
 
@@ -164,104 +172,155 @@ function PublicLedgerPage() {
               </button>
             </div>
 
-            {/* Table Container */}
-            <div className="glass-panel rounded-xl overflow-hidden shadow-2xl">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-white/5 bg-[#1c2136]">
-                    <th className="p-4 text-xs font-bold text-[#929bc9] uppercase tracking-wider">
-                      Transaction Hash
-                    </th>
-                    <th className="p-4 text-xs font-bold text-[#929bc9] uppercase tracking-wider">
-                      Block No.
-                    </th>
-                    <th className="p-4 text-xs font-bold text-[#929bc9] uppercase tracking-wider">
-                      Timestamp (UTC)
-                    </th>
-                    <th className="p-4 text-xs font-bold text-[#929bc9] uppercase tracking-wider">
-                      Diploma ID
-                    </th>
-                    <th className="p-4 text-xs font-bold text-[#929bc9] uppercase tracking-wider">
-                      Status
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="text-sm">
-                  {filteredTransactions.map((tx, index) => (
-                    <tr
-                      key={index}
-                      className="border-b border-white/5 hover:bg-[#1c2136] transition-colors group"
-                    >
-                      <td className="p-4">
-                        <div className="flex items-center gap-4">
-                          <div
-                            className={`p-2 rounded-lg bg-[#232948] border border-white/10 group-hover:border-sc-accent-blue/30 transition-colors ${tx.status === 'revoked' ? 'text-orange-500' : 'text-sc-accent-blue'}`}
-                          >
-                            <LinkIcon className="w-4 h-4" />
-                          </div>
-                          <span
-                            className={`font-mono font-medium tracking-tight ${tx.status === 'revoked' ? 'text-orange-400' : 'text-sc-accent-blue'}`}
-                          >
-                            {tx.txHash}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="p-4 font-mono text-[#929bc9] font-medium">
-                        {tx.blockNo}
-                      </td>
-                      <td className="p-4">
-                        <div>
-                          <p className="font-bold text-white">{tx.timestamp}</p>
-                          <p className="text-[10px] font-bold text-[#5a648b] uppercase">
-                            {tx.timestampTime}
-                          </p>
-                        </div>
-                      </td>
-                      <td className="p-4 font-mono text-[#929bc9] font-medium">
-                        {tx.diplomaId}
-                      </td>
-                      <td className="p-4">
-                        {tx.status === 'active' ? (
-                          <span className="sc-badge-success">Active</span>
-                        ) : (
-                          <span className="sc-badge-error">
-                            <AlertTriangle className="w-3.5 h-3.5 mr-1" />
-                            Revoked
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              {/* Pagination & Summary */}
-              <div className="p-6 border-t border-white/5 flex items-center justify-between">
-                <p className="text-sm font-bold text-[#5a648b]">
-                  Showing <span className="text-white">1-6</span> of{' '}
-                  <span className="text-white">2,840</span> transactions
+            {/* Loading State */}
+            {isLoading && (
+              <div className="glass-panel rounded-xl p-12 text-center">
+                <Loader2 className="w-8 h-8 text-sc-accent-blue animate-spin mx-auto mb-4" />
+                <p className="text-white font-bold">Loading ledger data...</p>
+                <p className="text-[#929bc9] text-sm">
+                  Fetching diploma records from blockchain
                 </p>
-                <div className="flex items-center gap-2">
-                  <button
-                    className="px-5 py-2 bg-[#232948]/50 border border-white/5 rounded-xl text-sm font-bold text-[#929bc9] disabled:opacity-30 disabled:cursor-not-allowed"
-                    disabled
-                  >
-                    Previous
-                  </button>
-                  <button className="px-5 py-2 bg-[#232948]/50 border border-white/5 rounded-xl text-sm font-bold text-[#929bc9] hover:text-white transition-all">
-                    Next
-                  </button>
+              </div>
+            )}
+
+            {/* Error State */}
+            {error && !isLoading && (
+              <div className="glass-panel rounded-xl p-12 text-center border border-red-500/20">
+                <XCircle className="w-8 h-8 text-red-400 mx-auto mb-4" />
+                <p className="text-red-400 font-bold">{error}</p>
+                <p className="text-[#929bc9] text-sm mt-2">
+                  Make sure the contract is deployed and accessible.
+                </p>
+              </div>
+            )}
+
+            {/* Table Container */}
+            {!isLoading && !error && (
+              <div className="glass-panel rounded-xl overflow-hidden shadow-2xl">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-white/5 bg-[#1c2136]">
+                      <th className="p-4 text-xs font-bold text-[#929bc9] uppercase tracking-wider">
+                        Diploma ID
+                      </th>
+                      <th className="p-4 text-xs font-bold text-[#929bc9] uppercase tracking-wider">
+                        Student
+                      </th>
+                      <th className="p-4 text-xs font-bold text-[#929bc9] uppercase tracking-wider">
+                        Timestamp (UTC)
+                      </th>
+                      <th className="p-4 text-xs font-bold text-[#929bc9] uppercase tracking-wider">
+                        Issuer
+                      </th>
+                      <th className="p-4 text-xs font-bold text-[#929bc9] uppercase tracking-wider">
+                        Status
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-sm">
+                    {filteredDiplomas.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={5}
+                          className="p-8 text-center text-[#929bc9]"
+                        >
+                          {diplomas.length === 0
+                            ? 'No diplomas have been issued yet.'
+                            : 'No matching records found.'}
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredDiplomas.map((diploma) => {
+                        const { date, time } = formatDate(diploma.timestamp)
+                        return (
+                          <tr
+                            key={diploma.id}
+                            className="border-b border-white/5 hover:bg-[#1c2136] transition-colors group"
+                          >
+                            <td className="p-4">
+                              <div className="flex items-center gap-4">
+                                <div
+                                  className={`p-2 rounded-lg bg-[#232948] border border-white/10 group-hover:border-sc-accent-blue/30 transition-colors ${diploma.isActive ? 'text-sc-accent-blue' : 'text-orange-500'}`}
+                                >
+                                  <LinkIcon className="w-4 h-4" />
+                                </div>
+                                <span
+                                  className={`font-mono font-bold tracking-tight ${diploma.isActive ? 'text-sc-accent-blue' : 'text-orange-400'}`}
+                                >
+                                  #{diploma.id}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              <div>
+                                <p className="font-bold text-white">
+                                  {diploma.studentName || 'Unknown'}
+                                </p>
+                                <p className="text-xs text-[#5a648b]">
+                                  NIM: {diploma.nim || 'N/A'}
+                                </p>
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              <div>
+                                <p className="font-bold text-white">{date}</p>
+                                <p className="text-[10px] font-bold text-[#5a648b] uppercase">
+                                  {time}
+                                </p>
+                              </div>
+                            </td>
+                            <td className="p-4 font-mono text-[#929bc9] font-medium">
+                              {truncateAddress(diploma.issuer)}
+                            </td>
+                            <td className="p-4">
+                              {diploma.isActive ? (
+                                <span className="sc-badge-success">Active</span>
+                              ) : (
+                                <span className="sc-badge-error">
+                                  <AlertTriangle className="w-3.5 h-3.5 mr-1" />
+                                  Revoked
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })
+                    )}
+                  </tbody>
+                </table>
+
+                {/* Pagination & Summary */}
+                <div className="p-6 border-t border-white/5 flex items-center justify-between">
+                  <p className="text-sm font-bold text-[#5a648b]">
+                    Showing{' '}
+                    <span className="text-white">
+                      {filteredDiplomas.length}
+                    </span>{' '}
+                    of <span className="text-white">{diplomas.length}</span>{' '}
+                    diplomas
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      className="px-5 py-2 bg-[#232948]/50 border border-white/5 rounded-xl text-sm font-bold text-[#929bc9] disabled:opacity-30 disabled:cursor-not-allowed"
+                      disabled
+                    >
+                      Previous
+                    </button>
+                    <button className="px-5 py-2 bg-[#232948]/50 border border-white/5 rounded-xl text-sm font-bold text-[#929bc9] hover:text-white transition-all">
+                      Next
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Version Info & Last Synced */}
             <div className="mt-8 flex items-center justify-between px-2">
               <p className="text-[10px] font-bold text-[#5a648b] uppercase tracking-widest">
-                Serti-Chain v2.4.0 • Connected to Ethereum Mainnet
+                Ijazah-Palsu v1.0 • Connected to Ganache Local
               </p>
               <p className="text-[10px] font-bold text-[#5a648b] uppercase tracking-widest">
-                Last synced: 12s ago
+                {diplomas.length} records on chain
               </p>
             </div>
           </div>

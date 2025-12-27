@@ -65,7 +65,7 @@ export const getNetworkId = async (): Promise<number> => {
  */
 export const isCorrectNetwork = async (): Promise<boolean> => {
   const networkId = await getNetworkId()
-  const expectedNetworkId = Number(process.env.NEXT_PUBLIC_CHAIN_ID) || 5777
+  const expectedNetworkId = Number(process.env.NEXT_PUBLIC_CHAIN_ID) || 1337
   return networkId === expectedNetworkId
 }
 
@@ -77,7 +77,7 @@ export const switchToCorrectNetwork = async (): Promise<void> => {
     throw new Error('MetaMask not detected')
   }
 
-  const chainId = process.env.NEXT_PUBLIC_CHAIN_ID || '5777'
+  const chainId = process.env.NEXT_PUBLIC_CHAIN_ID || '1337'
   const chainIdHex = `0x${Number(chainId).toString(16)}`
 
   try {
@@ -103,7 +103,7 @@ export const addNetwork = async (): Promise<void> => {
     throw new Error('MetaMask not detected')
   }
 
-  const chainId = process.env.NEXT_PUBLIC_CHAIN_ID || '5777'
+  const chainId = process.env.NEXT_PUBLIC_CHAIN_ID || '1337'
   const chainIdHex = `0x${Number(chainId).toString(16)}`
   const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'http://localhost:8545'
 

@@ -1,0 +1,19 @@
+{
+  "sepolia": {
+    "DiplomaLedger": {
+      "address": "0x3FD7c307cbC04FF02bB3ba80A0102E1562dA0ACE",
+      "network": "sepolia",
+      "deployedAt": "2025-12-16T03:50:42.442Z",
+      "owner": "0xA143D1bA8bDB46f91068AAcf646e13F705985972"
+    }
+  },
+  "development": {
+    "IjazahNFT": {
+      "address": "0xFD471836031dc5108809D173A067e8486B9047A3",
+      "network": "development",
+      "deployedAt": "2025-12-26T16:34:55.932Z",
+      "admin": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      "issuerRoleHash": "0x114e74f6ea3bd819998f78687bfcb11b140da08e9b7d222fa9c1f1ba1f2aa122"
+    }
+  }
+}

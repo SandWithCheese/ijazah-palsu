@@ -29,7 +29,7 @@ services:
       - "${GANACHE_PORT:-8545}:8545"
     command: >
       --mnemonic "${GANACHE_MNEMONIC:-test test test test test test test test test test test junk}"
-      --networkId ${GANACHE_NETWORK_ID:-5777}
+      --networkId ${GANACHE_NETWORK_ID:-1337}
       --accounts ${GANACHE_ACCOUNTS:-10}
       --defaultBalanceEther ${GANACHE_BALANCE:-100}
       --gasLimit ${GANACHE_GAS_LIMIT:-10000000}

@@ -121,6 +121,8 @@ function MintDiplomaPage() {
         documentHash,
         cid,
         signature,
+        studentName,
+        nim,
         account,
       )
 

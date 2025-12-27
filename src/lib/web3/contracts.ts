@@ -76,13 +76,15 @@ export const getContractAddress = async (
 // ============ Diploma Operations ============
 
 /**
- * Issue a new diploma (matches new contract interface)
+ * Issue a new diploma (matches new contract interface with metadata)
  */
 export const issueDiploma = async (
   recipientAddress: string,
   documentHash: string,
   cid: string,
   signature: string,
+  studentName: string,
+  nim: string,
   fromAddress: string,
 ): Promise<any> => {
   const contract = await getIjazahNFTContract()
@@ -93,7 +95,14 @@ export const issueDiploma = async (
 
   try {
     const receipt = await contract.methods
-      .issueDiploma(recipientAddress, documentHash, cid, signature)
+      .issueDiploma(
+        recipientAddress,
+        documentHash,
+        cid,
+        signature,
+        studentName,
+        nim,
+      )
       .send({ from: fromAddress })
 
     return receipt
@@ -301,6 +310,88 @@ export const getRevocationReason = async (
     return String(reason)
   } catch (error) {
     console.error('Error getting revocation reason:', error)
+    throw error
+  }
+}
+
+/**
+ * Get diploma metadata (student name and NIM)
+ */
+export const getDiplomaMetadata = async (
+  diplomaId: number,
+): Promise<{ studentName: string; nim: string }> => {
+  const contract = await getIjazahNFTContract()
+
+  if (!contract) {
+    throw new Error('Contract not initialized')
+  }
+
+  try {
+    const result = (await contract.methods
+      .getDiplomaMetadata(diplomaId)
+      .call()) as [string, string]
+
+    return {
+      studentName: result[0],
+      nim: result[1],
+    }
+  } catch (error) {
+    console.error('Error getting diploma metadata:', error)
+    throw error
+  }
+}
+
+/**
+ * Get all diplomas from blockchain
+ */
+export const getAllDiplomas = async (): Promise<
+  Array<{
+    id: number
+    owner: string
+    issuer: string
+    documentHash: string
+    cid: string
+    timestamp: number
+    isActive: boolean
+    studentName: string
+    nim: string
+  }>
+> => {
+  const contract = await getIjazahNFTContract()
+  if (!contract) {
+    throw new Error('Contract not initialized')
+  }
+
+  try {
+    const total = await contract.methods.getTotalDiplomas().call()
+    const totalNum = Number(total)
+    const diplomas = []
+
+    for (let i = 0; i < totalNum; i++) {
+      try {
+        const details = await getDiplomaDetails(i)
+        const metadata = await getDiplomaMetadata(i)
+        if (details) {
+          diplomas.push({
+            id: i,
+            owner: details.owner,
+            issuer: details.issuer,
+            documentHash: details.documentHash,
+            cid: details.cid,
+            timestamp: details.timestamp,
+            isActive: details.isActive,
+            studentName: metadata.studentName,
+            nim: metadata.nim,
+          })
+        }
+      } catch {
+        // Skip invalid diplomas
+      }
+    }
+
+    return diplomas
+  } catch (error) {
+    console.error('Error getting all diplomas:', error)
     throw error
   }
 }

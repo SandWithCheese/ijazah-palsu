@@ -66,6 +66,8 @@ contract('IjazahNFT', (accounts) => {
     const documentHash = web3.utils.keccak256('diploma content hash')
     const cid = 'ipfs://QmTestHash123'
     const signature = '0x1234567890abcdef'
+    const studentName = 'John Doe'
+    const nim = '202300001'
 
     it('should issue a diploma successfully', async () => {
       const tx = await ijazahNFT.issueDiploma(
@@ -73,6 +75,8 @@ contract('IjazahNFT', (accounts) => {
         documentHash,
         cid,
         signature,
+        studentName,
+        nim,
         { from: admin },
       )
 
@@ -83,6 +87,8 @@ contract('IjazahNFT', (accounts) => {
       expect(event.args.issuer).to.equal(admin)
       expect(event.args.documentHash).to.equal(documentHash)
       expect(event.args.cid).to.equal(cid)
+      expect(event.args.studentName).to.equal(studentName)
+      expect(event.args.nim).to.equal(nim)
 
       // Check token ownership
       const diplomaId = event.args.diplomaId
@@ -96,6 +102,8 @@ contract('IjazahNFT', (accounts) => {
         documentHash,
         cid,
         signature,
+        studentName,
+        nim,
         { from: admin },
       )
 
@@ -113,9 +121,17 @@ contract('IjazahNFT', (accounts) => {
     it('should only allow issuers to issue diplomas', async () => {
       let errorOccurred = false
       try {
-        await ijazahNFT.issueDiploma(recipient, documentHash, cid, signature, {
-          from: otherAccount,
-        })
+        await ijazahNFT.issueDiploma(
+          recipient,
+          documentHash,
+          cid,
+          signature,
+          studentName,
+          nim,
+          {
+            from: otherAccount,
+          },
+        )
       } catch (error) {
         errorOccurred = true
       }
@@ -128,6 +144,8 @@ contract('IjazahNFT', (accounts) => {
         documentHash,
         cid,
         signature,
+        studentName,
+        nim,
         { from: admin },
       )
 
@@ -136,6 +154,8 @@ contract('IjazahNFT', (accounts) => {
         web3.utils.keccak256('another diploma'),
         'ipfs://QmAnotherHash',
         '0xabcdef',
+        'Jane Smith',
+        '202300002',
         { from: admin },
       )
 
@@ -153,6 +173,8 @@ contract('IjazahNFT', (accounts) => {
     const documentHash = web3.utils.keccak256('diploma content hash')
     const cid = 'ipfs://QmTestHash123'
     const signature = '0x1234567890abcdef'
+    const studentName = 'Test Student'
+    const nim = '202300099'
     const revocationReason = 'Credential fraud detected'
 
     beforeEach(async () => {
@@ -161,6 +183,8 @@ contract('IjazahNFT', (accounts) => {
         documentHash,
         cid,
         signature,
+        studentName,
+        nim,
         { from: admin },
       )
       const event = tx.logs.find((log) => log.event === 'DiplomaIssued')
@@ -227,6 +251,8 @@ contract('IjazahNFT', (accounts) => {
     const documentHash = web3.utils.keccak256('diploma content hash')
     const cid = 'ipfs://QmTestHash123'
     const signature = '0x1234567890abcdef'
+    const studentName = 'Verify Student'
+    const nim = '202300088'
 
     beforeEach(async () => {
       const tx = await ijazahNFT.issueDiploma(
@@ -234,6 +260,8 @@ contract('IjazahNFT', (accounts) => {
         documentHash,
         cid,
         signature,
+        studentName,
+        nim,
         { from: admin },
       )
       const event = tx.logs.find((log) => log.event === 'DiplomaIssued')
@@ -276,20 +304,38 @@ contract('IjazahNFT', (accounts) => {
     const documentHash = web3.utils.keccak256('diploma content hash')
     const cid = 'ipfs://QmTestHash123'
     const signature = '0x1234567890abcdef'
+    const studentName = 'Counter Student'
+    const nim = '202300077'
 
     it('should track total diplomas issued', async () => {
       const initialCount = await ijazahNFT.getTotalDiplomas()
       expect(Number(initialCount)).to.equal(0)
 
-      await ijazahNFT.issueDiploma(recipient, documentHash, cid, signature, {
-        from: admin,
-      })
+      await ijazahNFT.issueDiploma(
+        recipient,
+        documentHash,
+        cid,
+        signature,
+        studentName,
+        nim,
+        {
+          from: admin,
+        },
+      )
       const countAfterOne = await ijazahNFT.getTotalDiplomas()
       expect(Number(countAfterOne)).to.equal(1)
 
-      await ijazahNFT.issueDiploma(recipient, documentHash, cid, signature, {
-        from: admin,
-      })
+      await ijazahNFT.issueDiploma(
+        recipient,
+        documentHash,
+        cid,
+        signature,
+        'Second Student',
+        '202300078',
+        {
+          from: admin,
+        },
+      )
       const countAfterTwo = await ijazahNFT.getTotalDiplomas()
       expect(Number(countAfterTwo)).to.equal(2)
     })
@@ -300,6 +346,8 @@ contract('IjazahNFT', (accounts) => {
     const documentHash = web3.utils.keccak256('diploma content hash')
     const cid = 'ipfs://QmTestHash123'
     const signature = '0x1234567890abcdef'
+    const studentName = 'ERC721 Student'
+    const nim = '202300066'
 
     beforeEach(async () => {
       const tx = await ijazahNFT.issueDiploma(
@@ -307,6 +355,8 @@ contract('IjazahNFT', (accounts) => {
         documentHash,
         cid,
         signature,
+        studentName,
+        nim,
         { from: admin },
       )
       const event = tx.logs.find((log) => log.event === 'DiplomaIssued')
