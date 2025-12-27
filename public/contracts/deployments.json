@@ -5,6 +5,13 @@
       "network": "sepolia",
       "deployedAt": "2025-12-16T03:50:42.442Z",
       "owner": "0xA143D1bA8bDB46f91068AAcf646e13F705985972"
+    },
+    "IjazahNFT": {
+      "address": "0x3b8281F04302EFFE8e243D172FFE5aE29ac0Ad7D",
+      "network": "sepolia",
+      "deployedAt": "2025-12-27T12:00:03.768Z",
+      "admin": "0xA143D1bA8bDB46f91068AAcf646e13F705985972",
+      "issuerRoleHash": "0x114e74f6ea3bd819998f78687bfcb11b140da08e9b7d222fa9c1f1ba1f2aa122"
     }
   },
   "development": {

@@ -21,6 +21,7 @@
     "contracts:test": "cd contracts && npm run test"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.958.0",
     "@t3-oss/env-core": "^0.13.8",
     "@tailwindcss/vite": "^4.0.6",
     "@tanstack/react-devtools": "^0.7.0",

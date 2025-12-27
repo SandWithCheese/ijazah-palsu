@@ -65,7 +65,7 @@ export const getNetworkId = async (): Promise<number> => {
  */
 export const isCorrectNetwork = async (): Promise<boolean> => {
   const networkId = await getNetworkId()
-  const expectedNetworkId = Number(process.env.NEXT_PUBLIC_CHAIN_ID) || 1337
+  const expectedNetworkId = Number(process.env.NEXT_PUBLIC_CHAIN_ID) || 11155111
   return networkId === expectedNetworkId
 }
 
@@ -77,7 +77,7 @@ export const switchToCorrectNetwork = async (): Promise<void> => {
     throw new Error('MetaMask not detected')
   }
 
-  const chainId = process.env.NEXT_PUBLIC_CHAIN_ID || '1337'
+  const chainId = process.env.NEXT_PUBLIC_CHAIN_ID || '11155111'
   const chainIdHex = `0x${Number(chainId).toString(16)}`
 
   try {
@@ -103,25 +103,39 @@ export const addNetwork = async (): Promise<void> => {
     throw new Error('MetaMask not detected')
   }
 
-  const chainId = process.env.NEXT_PUBLIC_CHAIN_ID || '1337'
+  const chainId = process.env.NEXT_PUBLIC_CHAIN_ID || '11155111'
   const chainIdHex = `0x${Number(chainId).toString(16)}`
-  const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'http://localhost:8545'
+  const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || 'https://rpc.sepolia.org'
+
+  // Determine network config based on chainId
+  const isSepoliaNetwork = chainId === '11155111'
+  const networkConfig = isSepoliaNetwork
+    ? {
+        chainId: chainIdHex,
+        chainName: 'Sepolia Testnet',
+        nativeCurrency: {
+          name: 'Sepolia Ether',
+          symbol: 'SepoliaETH',
+          decimals: 18,
+        },
+        rpcUrls: [rpcUrl],
+        blockExplorerUrls: ['https://sepolia.etherscan.io'],
+      }
+    : {
+        chainId: chainIdHex,
+        chainName: 'Ganache Local',
+        nativeCurrency: {
+          name: 'Ether',
+          symbol: 'ETH',
+          decimals: 18,
+        },
+        rpcUrls: [rpcUrl],
+      }
 
   try {
     await (window as any).ethereum.request({
       method: 'wallet_addEthereumChain',
-      params: [
-        {
-          chainId: chainIdHex,
-          chainName: 'Ganache Local',
-          nativeCurrency: {
-            name: 'Ether',
-            symbol: 'ETH',
-            decimals: 18,
-          },
-          rpcUrls: [rpcUrl],
-        },
-      ],
+      params: [networkConfig],
     })
   } catch (error) {
     console.error('Error adding network:', error)

@@ -5,6 +5,14 @@ import type { Contract } from 'web3'
 let IjazahNFTArtifact: any = null
 let deployments: any = null
 
+// Map chainId to network name (matching deployments.json keys)
+const CHAIN_ID_TO_NETWORK: { [key: number]: string } = {
+  1: 'mainnet',
+  11155111: 'sepolia',
+  1337: 'docker',
+  31337: 'localhost',
+}
+
 // Lazy load contract artifacts
 const loadArtifacts = async () => {
   if (typeof window === 'undefined') {
@@ -37,6 +45,7 @@ const loadArtifacts = async () => {
 
 /**
  * Get IjazahNFT contract instance
+ * Automatically detects network from connected wallet's chainId
  */
 export const getIjazahNFTContract = async (
   networkId?: string,
@@ -50,15 +59,26 @@ export const getIjazahNFTContract = async (
 
   const web3 = getWeb3()
 
-  // Get contract address from deployments
-  const network = networkId || 'development'
+  // Auto-detect network from chainId if not provided
+  let network = networkId
+  if (!network) {
+    try {
+      const chainId = await web3.eth.getChainId()
+      network = CHAIN_ID_TO_NETWORK[Number(chainId)] || 'sepolia'
+    } catch {
+      network = 'sepolia' // Default to sepolia
+    }
+  }
+
   const contractAddress = deployments?.[network]?.IjazahNFT?.address
 
   if (!contractAddress) {
     console.error(`No deployment found for network: ${network}`)
+    console.log('Available networks:', Object.keys(deployments || {}))
     return null
   }
 
+  console.log(`Using contract at ${contractAddress} on network ${network}`)
   return new web3.eth.Contract(IjazahNFTArtifact.abi, contractAddress)
 }
 
@@ -69,7 +89,19 @@ export const getContractAddress = async (
   networkId?: string,
 ): Promise<string | null> => {
   await loadArtifacts()
-  const network = networkId || 'development'
+
+  // Auto-detect network from chainId if not provided
+  let network = networkId
+  if (!network) {
+    try {
+      const web3 = getWeb3()
+      const chainId = await web3.eth.getChainId()
+      network = CHAIN_ID_TO_NETWORK[Number(chainId)] || 'sepolia'
+    } catch {
+      network = 'sepolia'
+    }
+  }
+
   return deployments?.[network]?.IjazahNFT?.address || null
 }
 
@@ -420,6 +452,82 @@ export const signMessage = async (
     return signature
   } catch (error) {
     console.error('Error signing message:', error)
+    throw error
+  }
+}
+
+// ============ Issuer Management (PRD B-01) ============
+
+/**
+ * Add a new issuer (admin only)
+ */
+export const addIssuer = async (
+  issuerAddress: string,
+  fromAddress: string,
+): Promise<any> => {
+  const contract = await getIjazahNFTContract()
+
+  if (!contract) {
+    throw new Error('Contract not initialized')
+  }
+
+  try {
+    const receipt = await contract.methods
+      .addIssuer(issuerAddress)
+      .send({ from: fromAddress })
+
+    return receipt
+  } catch (error) {
+    console.error('Error adding issuer:', error)
+    throw error
+  }
+}
+
+/**
+ * Remove an issuer (admin only)
+ */
+export const removeIssuer = async (
+  issuerAddress: string,
+  fromAddress: string,
+): Promise<any> => {
+  const contract = await getIjazahNFTContract()
+
+  if (!contract) {
+    throw new Error('Contract not initialized')
+  }
+
+  try {
+    const receipt = await contract.methods
+      .removeIssuer(issuerAddress)
+      .send({ from: fromAddress })
+
+    return receipt
+  } catch (error) {
+    console.error('Error removing issuer:', error)
+    throw error
+  }
+}
+
+/**
+ * Check if address has DEFAULT_ADMIN_ROLE
+ */
+export const isAdmin = async (address: string): Promise<boolean> => {
+  const contract = await getIjazahNFTContract()
+
+  if (!contract) {
+    throw new Error('Contract not initialized')
+  }
+
+  try {
+    // DEFAULT_ADMIN_ROLE is 0x00 bytes32
+    const DEFAULT_ADMIN_ROLE =
+      '0x0000000000000000000000000000000000000000000000000000000000000000'
+    const result = await contract.methods
+      .hasRole(DEFAULT_ADMIN_ROLE, address)
+      .call()
+    return Boolean(result)
+  } catch (error) {
+    console.error('Error checking admin status:', error)
     throw error
   }
 }

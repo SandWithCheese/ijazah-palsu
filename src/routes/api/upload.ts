@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import * as fs from 'fs'
 import * as path from 'path'
 
-// Upload directory for encrypted files
+// Upload directory for encrypted files (fallback/local storage)
 const UPLOAD_DIR = process.env.UPLOAD_DIR || './public/uploads'
 
 // Ensure upload directory exists
@@ -24,14 +24,39 @@ export const Route = createFileRoute('/api/upload')({
     handlers: {
       POST: async ({ request }) => {
         try {
-          ensureUploadDir()
-
           const body = await request.json()
           const { data, filename } = body
 
           if (!data) {
             return Response.json({ error: 'No data provided' }, { status: 400 })
           }
+
+          // Try Filebase IPFS first
+          try {
+            const { isFilebaseConfigured, uploadToIPFS } =
+              await import('../../lib/filebase')
+
+            if (isFilebaseConfigured()) {
+              console.log('Uploading to Filebase IPFS...')
+              const cid = await uploadToIPFS(data, filename || 'diploma')
+              console.log('Uploaded to IPFS with CID:', cid)
+
+              return Response.json({
+                cid,
+                storage: 'ipfs',
+                message: 'File uploaded to IPFS successfully',
+              })
+            }
+          } catch (ipfsError: any) {
+            console.warn(
+              'Filebase upload failed, falling back to local:',
+              ipfsError.message,
+            )
+          }
+
+          // Fallback to local storage
+          console.log('Using local storage (Filebase not configured)')
+          ensureUploadDir()
 
           // Generate CID
           const cid = generateLocalCID()
@@ -50,9 +75,13 @@ export const Route = createFileRoute('/api/upload')({
           }
           fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2))
 
-          console.log(`File uploaded: ${cid}`)
+          console.log(`File uploaded locally: ${cid}`)
 
-          return Response.json({ cid, message: 'File uploaded successfully' })
+          return Response.json({
+            cid,
+            storage: 'local',
+            message: 'File uploaded successfully',
+          })
         } catch (error: any) {
           console.error('Upload error:', error)
           return Response.json(

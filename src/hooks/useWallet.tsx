@@ -15,15 +15,23 @@ import {
   onChainChanged,
 } from '../lib/web3/client'
 import { isIssuer } from '../lib/web3/contracts'
+import {
+  authenticateWithWallet,
+  getAuthSession,
+  clearAuthSession,
+  isSessionValid,
+} from '../lib/auth'
 
 interface WalletContextType {
   address: string | null
   isConnected: boolean
   isIssuer: boolean
+  isAuthenticated: boolean
   isLoading: boolean
   networkId: number | null
   isCorrectNetwork: boolean
   connect: () => Promise<void>
+  authenticate: () => Promise<{ success: boolean; error?: string }>
   disconnect: () => void
   switchNetwork: () => Promise<void>
   error: string | null
@@ -38,16 +46,30 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [networkId, setNetworkId] = useState<number | null>(null)
   const [correctNetwork, setCorrectNetwork] = useState(false)
   const [issuerStatus, setIssuerStatus] = useState(false)
+  const [authenticated, setAuthenticated] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Check issuer status when address changes
-  const checkIssuerStatus = async (addr: string) => {
+  const checkIssuerStatus = async (addr: string): Promise<boolean> => {
     try {
       const status = await isIssuer(addr)
       setIssuerStatus(status)
+      return status
     } catch (err) {
       console.error('Failed to check issuer status:', err)
       setIssuerStatus(false)
+      return false
+    }
+  }
+
+  // Check if session is still valid
+  const checkAuthSession = (addr: string) => {
+    const session = getAuthSession()
+    if (session && isSessionValid(addr)) {
+      setAuthenticated(true)
+      setIssuerStatus(session.isIssuer)
+    } else {
+      setAuthenticated(false)
     }
   }
 
@@ -74,6 +96,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         if (account) {
           setAddress(account)
           await checkIssuerStatus(account)
+          checkAuthSession(account)
 
           const netId = await getNetworkId()
           setNetworkId(netId)
@@ -96,9 +119,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         if (accounts.length === 0) {
           setAddress(null)
           setIssuerStatus(false)
+          setAuthenticated(false)
+          clearAuthSession()
         } else {
+          // When account changes, invalidate auth
           setAddress(accounts[0])
           await checkIssuerStatus(accounts[0])
+          // Check if we have a valid session for this account
+          checkAuthSession(accounts[0])
         }
       })
 
@@ -120,6 +148,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       if (accounts.length > 0) {
         setAddress(accounts[0])
         await checkIssuerStatus(accounts[0])
+        checkAuthSession(accounts[0])
 
         const netId = await getNetworkId()
         setNetworkId(netId)
@@ -135,11 +164,46 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // Nonce challenge authentication (PRD F-01)
+  const authenticate = async (): Promise<{
+    success: boolean
+    error?: string
+  }> => {
+    if (!address) {
+      return { success: false, error: 'Wallet not connected' }
+    }
+
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const result = await authenticateWithWallet(address, async () => {
+        return await checkIssuerStatus(address)
+      })
+
+      if (result.success) {
+        setAuthenticated(true)
+      } else {
+        setError(result.error || 'Authentication failed')
+      }
+
+      return result
+    } catch (err: any) {
+      const errorMsg = err.message || 'Authentication failed'
+      setError(errorMsg)
+      return { success: false, error: errorMsg }
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const disconnect = () => {
     setAddress(null)
     setIssuerStatus(false)
+    setAuthenticated(false)
     setNetworkId(null)
     setCorrectNetwork(false)
+    clearAuthSession()
   }
 
   const switchNetwork = async () => {
@@ -160,10 +224,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         address,
         isConnected: !!address,
         isIssuer: issuerStatus,
+        isAuthenticated: authenticated,
         isLoading,
         networkId,
         isCorrectNetwork: correctNetwork,
         connect,
+        authenticate,
         disconnect,
         switchNetwork,
         error,
@@ -182,14 +248,17 @@ export function useWallet() {
   return context
 }
 
-// Hook untuk mengecek akses institusi (issuer)
+// Hook untuk mengecek akses institusi (issuer) dengan authentication
 export function useInstitutionAccess() {
-  const { isConnected, isIssuer, isLoading, address } = useWallet()
+  const { isConnected, isIssuer, isAuthenticated, isLoading, address } =
+    useWallet()
 
   return {
-    hasAccess: isConnected && isIssuer,
+    // Full access requires: connected + authenticated + issuer role
+    hasAccess: isConnected && isAuthenticated && isIssuer,
     isLoading,
     isConnected,
+    isAuthenticated,
     isInstitution: isIssuer,
     address,
   }

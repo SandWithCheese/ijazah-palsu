@@ -9,6 +9,7 @@ import {
   Loader2,
   XCircle,
 } from 'lucide-react'
+import { ExplorerLink } from '../components/ExplorerLink'
 
 export const Route = createFileRoute('/ledger')({
   component: PublicLedgerPage,
@@ -65,11 +66,6 @@ function PublicLedgerPage() {
           hour12: false,
         }) + ' UTC',
     }
-  }
-
-  const truncateAddress = (address: string) => {
-    if (!address) return ''
-    return `${address.slice(0, 6)}...${address.slice(-4)}`
   }
 
   const filteredDiplomas = diplomas.filter((d) => {
@@ -269,8 +265,13 @@ function PublicLedgerPage() {
                                 </p>
                               </div>
                             </td>
-                            <td className="p-4 font-mono text-[#929bc9] font-medium">
-                              {truncateAddress(diploma.issuer)}
+                            <td className="p-4">
+                              <ExplorerLink
+                                hash={diploma.issuer}
+                                type="address"
+                                truncate
+                                showCopy={false}
+                              />
                             </td>
                             <td className="p-4">
                               {diploma.isActive ? (
@@ -317,7 +318,7 @@ function PublicLedgerPage() {
             {/* Version Info & Last Synced */}
             <div className="mt-8 flex items-center justify-between px-2">
               <p className="text-[10px] font-bold text-[#5a648b] uppercase tracking-widest">
-                Ijazah-Palsu v1.0 • Connected to Ganache Local
+                Ijazah-Palsu v1.0 • Connected to Sepolia Testnet
               </p>
               <p className="text-[10px] font-bold text-[#5a648b] uppercase tracking-widest">
                 {diplomas.length} records on chain

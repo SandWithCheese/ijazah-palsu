@@ -20,48 +20,43 @@ services:
     networks:
       - ijazah-palsu-network
 
-  # Ganache (Ethereum Blockchain)
-  ganache:
-    image: trufflesuite/ganache:latest
-    container_name: ijazah-palsu-ganache
-    restart: unless-stopped
-    ports:
-      - "${GANACHE_PORT:-8545}:8545"
-    command: >
-      --mnemonic "${GANACHE_MNEMONIC:-test test test test test test test test test test test junk}"
-      --networkId ${GANACHE_NETWORK_ID:-1337}
-      --accounts ${GANACHE_ACCOUNTS:-10}
-      --defaultBalanceEther ${GANACHE_BALANCE:-100}
-      --gasLimit ${GANACHE_GAS_LIMIT:-10000000}
-      --host 0.0.0.0
-      --database.dbPath /ganache_data
-    volumes:
-      - ganache_data:/ganache_data
-    networks:
-      - ijazah-palsu-network
-
-  # Application
+  # Application (Development Mode with Hot Reload)
   app:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     container_name: ijazah-palsu-app
     restart: unless-stopped
     env_file:
       - .env
     ports:
       - "${APP_PORT:-3000}:3000"
+    volumes:
+      # Mount source code for hot reload
+      - ./src:/app/src:delegated
+      - ./public:/app/public:delegated
+      - ./contracts:/app/contracts:delegated
+      # Exclude node_modules to use container's version
+      - /app/node_modules
+      # Mount config files
+      - ./package.json:/app/package.json:ro
+      - ./tsconfig.json:/app/tsconfig.json:ro
+      - ./vite.config.ts:/app/vite.config.ts:ro
+    environment:
+      - NODE_ENV=development
+      - CHOKIDAR_USEPOLLING=true
+      # Filebase IPFS Configuration
+      - FILEBASE_ACCESS_KEY=${FILEBASE_ACCESS_KEY}
+      - FILEBASE_SECRET_KEY=${FILEBASE_SECRET_KEY}
+      - FILEBASE_BUCKET=${FILEBASE_BUCKET}
+      - FILEBASE_GATEWAY=${FILEBASE_GATEWAY:-https://ipfs.filebase.io/ipfs}
     depends_on:
       postgres:
         condition: service_healthy
-      ganache:
-        condition: service_started
     networks:
       - ijazah-palsu-network
 
 volumes:
-  ganache_data:
-    driver: local
   postgres_data:
     driver: local
 

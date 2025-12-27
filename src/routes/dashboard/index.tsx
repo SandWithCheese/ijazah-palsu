@@ -1,41 +1,77 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { ArrowUpRight, ShieldCheck, Award, BookOpen } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import {
+  ArrowUpRight,
+  ShieldCheck,
+  Award,
+  BookOpen,
+  Loader2,
+  XCircle,
+  AlertCircle,
+} from 'lucide-react'
 
 export const Route = createFileRoute('/dashboard/')({
   component: DashboardOverview,
 })
 
+interface DiplomaActivity {
+  id: number
+  type: 'mint' | 'revoked'
+  studentName: string
+  nim: string
+  timestamp: number
+  isActive: boolean
+}
+
 function DashboardOverview() {
-  const recentActivity = [
-    {
-      type: 'mint',
-      student: 'Ahmad Santoso',
-      nim: '202300101',
-      time: '2 minutes ago',
-      status: 'confirmed',
-    },
-    {
-      type: 'mint',
-      student: 'Siti Putri',
-      nim: '202300142',
-      time: '15 minutes ago',
-      status: 'pending',
-    },
-    {
-      type: 'verification',
-      student: 'Dian Rahmawati',
-      nim: '202300088',
-      time: '1 hour ago',
-      status: 'confirmed',
-    },
-    {
-      type: 'mint',
-      student: 'Dewi Lestari',
-      nim: '202300156',
-      time: '2 hours ago',
-      status: 'confirmed',
-    },
-  ]
+  const [recentActivity, setRecentActivity] = useState<DiplomaActivity[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchDiplomas = async () => {
+      try {
+        const { getAllDiplomas } = await import('../../lib/web3/contracts')
+        const allDiplomas = await getAllDiplomas()
+
+        // Transform and sort by timestamp (most recent first), take top 5
+        const activities: DiplomaActivity[] = allDiplomas
+          .map((d) => ({
+            id: d.id,
+            type: d.isActive ? ('mint' as const) : ('revoked' as const),
+            studentName: d.studentName || 'Unknown Student',
+            nim: d.nim || 'N/A',
+            timestamp: d.timestamp,
+            isActive: d.isActive,
+          }))
+          .sort((a, b) => b.timestamp - a.timestamp)
+          .slice(0, 5)
+
+        setRecentActivity(activities)
+      } catch (err: any) {
+        console.error('Error fetching diplomas:', err)
+        setError(err.message || 'Failed to fetch diploma data')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchDiplomas()
+  }, [])
+
+  const formatTimeAgo = (timestamp: number) => {
+    const now = Date.now()
+    const diff = now - timestamp * 1000 // Convert to milliseconds
+
+    const minutes = Math.floor(diff / (1000 * 60))
+    const hours = Math.floor(diff / (1000 * 60 * 60))
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+
+    if (minutes < 1) return 'Just now'
+    if (minutes < 60) return `${minutes} minute${minutes > 1 ? 's' : ''} ago`
+    if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`
+    return `${days} day${days > 1 ? 's' : ''} ago`
+  }
 
   return (
     <div className="flex flex-col gap-8">
@@ -54,54 +90,77 @@ function DashboardOverview() {
           </div>
 
           <div className="divide-y divide-white/5">
-            {recentActivity.map((activity, index) => (
-              <div
-                key={index}
-                className="flex items-center gap-4 p-4 hover:bg-white/3 transition-colors group"
-              >
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-6 h-6 text-sc-accent-blue animate-spin" />
+                <span className="ml-3 text-[#929bc9]">
+                  Loading from blockchain...
+                </span>
+              </div>
+            ) : error ? (
+              <div className="p-6 text-center">
+                <XCircle className="w-8 h-8 text-red-400 mx-auto mb-2" />
+                <p className="text-red-400 text-sm">{error}</p>
+              </div>
+            ) : recentActivity.length === 0 ? (
+              <div className="p-8 text-center">
+                <AlertCircle className="w-8 h-8 text-[#5a648b] mx-auto mb-2" />
+                <p className="text-[#929bc9]">No activity yet</p>
+                <p className="text-[#5a648b] text-sm mt-1">
+                  Issue your first diploma to see it here
+                </p>
+              </div>
+            ) : (
+              recentActivity.map((activity) => (
                 <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shadow-lg ${
-                    activity.type === 'mint'
-                      ? 'bg-linear-to-br from-indigo-500 to-blue-600 text-white'
-                      : 'bg-linear-to-br from-emerald-500 to-teal-600 text-white'
-                  }`}
+                  key={activity.id}
+                  className="flex items-center gap-4 p-4 hover:bg-white/3 transition-colors group"
                 >
-                  {activity.student
-                    .split(' ')
-                    .map((n) => n[0])
-                    .join('')}
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-white">
-                    {activity.student}
-                  </p>
-                  <p className="text-xs text-[#929bc9] font-medium">
-                    NIM: {activity.nim} •{' '}
-                    <span className="text-[#5a648b]">
-                      {activity.type === 'mint'
-                        ? 'Credential Minted'
-                        : 'Identity Verified'}
-                    </span>
-                  </p>
-                </div>
-
-                <div className="text-right flex flex-col items-end gap-1">
-                  <span
-                    className={`sc-badge ${
-                      activity.status === 'confirmed'
-                        ? 'sc-badge-success'
-                        : 'sc-badge-warning'
+                  <div
+                    className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shadow-lg ${
+                      activity.isActive
+                        ? 'bg-linear-to-br from-indigo-500 to-blue-600 text-white'
+                        : 'bg-linear-to-br from-red-500 to-orange-600 text-white'
                     }`}
                   >
-                    {activity.status === 'confirmed' ? 'Confirmed' : 'Pending'}
-                  </span>
-                  <p className="text-[10px] font-bold text-[#5a648b] uppercase tracking-wider">
-                    {activity.time}
-                  </p>
+                    {activity.studentName
+                      .split(' ')
+                      .map((n) => n[0])
+                      .join('')
+                      .slice(0, 2)}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-white">
+                      {activity.studentName}
+                    </p>
+                    <p className="text-xs text-[#929bc9] font-medium">
+                      NIM: {activity.nim} •{' '}
+                      <span className="text-[#5a648b]">
+                        {activity.isActive
+                          ? 'Credential Minted'
+                          : 'Credential Revoked'}
+                      </span>
+                    </p>
+                  </div>
+
+                  <div className="text-right flex flex-col items-end gap-1">
+                    <span
+                      className={`sc-badge ${
+                        activity.isActive
+                          ? 'sc-badge-success'
+                          : 'sc-badge-error'
+                      }`}
+                    >
+                      {activity.isActive ? 'Active' : 'Revoked'}
+                    </span>
+                    <p className="text-[10px] font-bold text-[#5a648b] uppercase tracking-wider">
+                      {formatTimeAgo(activity.timestamp)}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
 

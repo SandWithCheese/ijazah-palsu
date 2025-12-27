@@ -2,19 +2,22 @@
   "name": "contracts",
   "version": "1.0.0",
   "description": "Smart contracts for Ijazah Palsu project",
-  "main": "truffle-config.js",
+  "main": "hardhat.config.js",
   "scripts": {
-    "compile": "truffle compile",
-    "migrate": "truffle migrate --network development",
-    "migrate:docker": "truffle migrate --network docker",
-    "migrate:reset": "truffle migrate --reset --network development",
-    "test": "truffle test",
-    "console": "truffle console --network development"
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:local": "hardhat run scripts/deploy.js --network localhost",
+    "deploy:docker": "hardhat run scripts/deploy.js --network docker",
+    "deploy:sepolia": "hardhat run scripts/deploy.js --network sepolia",
+    "node": "hardhat node",
+    "console": "hardhat console --network localhost",
+    "console:sepolia": "hardhat console --network sepolia",
+    "clean": "hardhat clean"
   },
   "keywords": [
     "blockchain",
     "ethereum",
-    "truffle",
+    "hardhat",
     "solidity",
     "nft"
   ],
@@ -26,8 +29,7 @@
     "dotenv": "^16.0.0"
   },
   "devDependencies": {
-    "@truffle/hdwallet-provider": "^2.1.15",
-    "chai": "^4.3.10",
-    "truffle": "^5.11.0"
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "hardhat": "^2.19.0"
   }
 }

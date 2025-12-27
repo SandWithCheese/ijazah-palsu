@@ -16,6 +16,7 @@ import {
   Hash,
   QrCode,
 } from 'lucide-react'
+import { ExplorerLink } from '../../components/ExplorerLink'
 
 export const Route = createFileRoute('/dashboard/mint')({
   component: MintDiplomaPage,
@@ -249,9 +250,11 @@ function MintDiplomaPage() {
                 <label className="text-xs text-[#929bc9] uppercase font-bold block mb-1">
                   Transaction Hash
                 </label>
-                <p className="text-white font-mono text-sm truncate">
-                  {mintResult.transactionHash}
-                </p>
+                <ExplorerLink
+                  hash={mintResult.transactionHash}
+                  type="tx"
+                  truncate
+                />
               </div>
               <div className="bg-[#111422] rounded-lg p-4">
                 <label className="text-xs text-[#929bc9] uppercase font-bold block mb-1">
