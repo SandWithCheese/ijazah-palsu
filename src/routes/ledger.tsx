@@ -244,10 +244,18 @@ function PublicLedgerPage() {
                 <h1 className="text-4xl font-black text-white leading-tight tracking-tight mb-3">
                   Public Diploma Ledger
                 </h1>
-                <p className="text-[#929bc9] max-w-2xl leading-relaxed">
+                <p className="text-[#929bc9] max-w-2xl leading-relaxed mb-3">
                   A real-time, immutable record of all academic certifications
                   issued and revoked on the blockchain network.
                 </p>
+                <ExplorerLink
+                  hash="0x3b8281F04302EFFE8e243D172FFE5aE29ac0Ad7D"
+                  type="address"
+                  label="View Contract on Sepolia Etherscan"
+                  truncate={false}
+                  showCopy={true}
+                  className="inline-flex items-center gap-2 text-sm font-bold text-sc-accent-blue hover:text-blue-400 transition-colors"
+                />
               </div>
               <button
                 onClick={exportToCSV}
