@@ -144,30 +144,78 @@ function VerifyCredentialPage() {
         revocationReason = await getRevocationReason(id)
       }
 
-      // Step 5: Add verification URL and QR code to PDF (as per specification)
+      // Step 5: Add verification URL and QR code (as per specification)
       const { addVerificationUrlToPDF } = await import('../lib/pdf-utils')
       const verificationUrl = window.location.href // Full URL with hash
       let finalData = decryptedData
+      let mimeType = 'application/pdf'
 
+      // Try to detect file type and add verification accordingly
       try {
-        // Try to add QR code to PDF
+        // Try PDF first (most common for diplomas)
         finalData = await addVerificationUrlToPDF(
           decryptedData,
           verificationUrl,
           diplomaId,
         )
-        console.log('✅ Successfully added verification URL and QR code to diploma')
+        console.log('✅ Successfully added verification URL and QR code to PDF diploma')
+        mimeType = 'application/pdf'
       } catch (pdfError) {
-        console.warn(
-          'Could not modify PDF (may not be a PDF file), using original:',
-          pdfError,
-        )
-        // If it's not a PDF or modification fails, use original decrypted data
-        finalData = decryptedData
+        // If PDF fails, try to handle as text file
+        try {
+          const textContent = new TextDecoder('utf-8').decode(decryptedData)
+          
+          // Check if it's valid text (not binary garbage)
+          const isText = textContent.length > 0 && 
+                         textContent.split('').every(char => {
+                           const code = char.charCodeAt(0)
+                           return code === 10 || code === 13 || (code >= 32 && code < 127) || code >= 128
+                         })
+          
+          if (isText) {
+            // It's a text file - append verification URL
+            const verificationSection = `
+
+${'='.repeat(70)}
+VERIFIKASI IJAZAH DIGITAL
+${'='.repeat(70)}
+
+Diploma ID: ${diplomaId}
+Status: Valid dan terverifikasi di blockchain
+
+Untuk memverifikasi keaslian ijazah ini, kunjungi:
+${verificationUrl}
+
+Atau scan QR code yang tersedia di halaman verifikasi web.
+
+Blockchain: Ethereum Sepolia Testnet
+Contract: 0x3b8281F04302EFFE8e243D172FFE5aE29ac0Ad7D
+Timestamp: ${new Date().toISOString()}
+
+${'='.repeat(70)}
+© ${new Date().getFullYear()} Institut Teknologi Bandung
+Sistem Pencatatan Ijazah Digital Berbasis Blockchain
+`
+            
+            const modifiedText = textContent + verificationSection
+            finalData = new TextEncoder().encode(modifiedText).buffer
+            mimeType = 'text/plain'
+            console.log('✅ Successfully added verification URL to text diploma')
+          } else {
+            // Binary file (image, etc.) - return original
+            console.warn('Non-PDF, non-text file detected. Returning original file.')
+            finalData = decryptedData
+            mimeType = 'application/octet-stream'
+          }
+        } catch (textError) {
+          console.warn('Could not process as text file:', textError)
+          finalData = decryptedData
+          mimeType = 'application/octet-stream'
+        }
       }
 
-      // Create blob for download with modified PDF
-      const decryptedBlob = arrayBufferToBlob(finalData, 'application/pdf')
+      // Create blob for download
+      const decryptedBlob = arrayBufferToBlob(finalData, mimeType)
 
       setResult({
         diplomaId,
