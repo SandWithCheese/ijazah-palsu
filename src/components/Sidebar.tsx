@@ -32,20 +32,20 @@ export default function Sidebar() {
   return (
     <aside className="w-72 shrink-0 border-r border-white/5 bg-[#111422] flex flex-col justify-between p-4 h-full fixed left-0 top-0 z-50">
       <div className="flex flex-col gap-8">
-        {/* Branding */}
-        <div className="flex gap-3 items-center px-2">
-          <div className="bg-sc-accent-blue/20 rounded-full h-10 w-10 flex items-center justify-center border border-sc-accent-blue/30">
+        {/* Branding - Clickable to Landing Page */}
+        <Link to="/" className="flex gap-3 items-center px-2 group">
+          <div className="bg-sc-accent-blue/20 rounded-full h-10 w-10 flex items-center justify-center border border-sc-accent-blue/30 group-hover:bg-sc-accent-blue/30 transition-colors">
             <Box className="text-sc-accent-blue w-6 h-6" />
           </div>
           <div className="flex flex-col">
-            <h1 className="text-white text-lg font-bold leading-tight tracking-tight">
+            <h1 className="text-white text-lg font-bold leading-tight tracking-tight group-hover:text-sc-accent-blue transition-colors">
               Serti-Chain
             </h1>
             <p className="text-[#929bc9] text-xs font-normal">
               Institution Portal
             </p>
           </div>
-        </div>
+        </Link>
 
         {/* Navigation Menu */}
         <nav className="flex flex-col gap-2">

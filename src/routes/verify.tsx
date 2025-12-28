@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   Search,
   ShieldCheck,
@@ -15,10 +15,33 @@ import {
   Loader2,
   Lock,
   FileText,
+  Check,
+  Copy,
+  Twitter,
+  Linkedin,
+  Link as LinkIcon,
 } from 'lucide-react'
+import PublicNav from '../components/PublicNav'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../components/ui/dropdown-menu'
+
+interface VerifySearch {
+  id?: string
+}
 
 export const Route = createFileRoute('/verify')({
   component: VerifyCredentialPage,
+  validateSearch: (search: Record<string, unknown>): VerifySearch => {
+    return {
+      id: typeof search.id === 'string' ? search.id : undefined,
+    }
+  },
 })
 
 type VerificationStatus = 'valid' | 'revoked' | 'invalid' | null
@@ -38,7 +61,8 @@ interface VerificationResult {
 }
 
 function VerifyCredentialPage() {
-  const [manualId, setManualId] = useState('')
+  const { id: searchId } = Route.useSearch()
+  const [manualId, setManualId] = useState(searchId || '')
   const [isVerifying, setIsVerifying] = useState(false)
   const [result, setResult] = useState<VerificationResult | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -51,6 +75,17 @@ function VerifyCredentialPage() {
       handleVerifyFromUrl(hash)
     }
   }, [])
+
+  // Auto-verify if ID is passed from search params
+  useEffect(() => {
+    if (searchId && !window.location.hash) {
+      setManualId(searchId)
+      // Small delay to ensure state is updated
+      setTimeout(() => {
+        handleManualVerifyWithId(searchId)
+      }, 100)
+    }
+  }, [searchId])
 
   const handleVerifyFromUrl = async (hash: string) => {
     setIsVerifying(true)
@@ -137,8 +172,8 @@ function VerifyCredentialPage() {
     }
   }
 
-  const handleManualVerify = async () => {
-    if (!manualId) return
+  const handleManualVerifyWithId = useCallback(async (idToVerify: string) => {
+    if (!idToVerify) return
 
     setIsVerifying(true)
     setError(null)
@@ -148,7 +183,7 @@ function VerifyCredentialPage() {
       const { verifyDiploma, getDiplomaDetails, getRevocationReason } =
         await import('../lib/web3/contracts')
 
-      const id = parseInt(manualId, 10)
+      const id = parseInt(idToVerify, 10)
       if (isNaN(id)) {
         throw new Error('Invalid diploma ID')
       }
@@ -170,7 +205,7 @@ function VerifyCredentialPage() {
       }
 
       setResult({
-        diplomaId: manualId,
+        diplomaId: idToVerify,
         status: verification.isActive ? 'valid' : 'revoked',
         owner: details.owner,
         issuer: details.issuer,
@@ -186,6 +221,57 @@ function VerifyCredentialPage() {
       setError(err.message || 'Verification failed')
     } finally {
       setIsVerifying(false)
+    }
+  }, [])
+
+  const handleManualVerify = async () => {
+    handleManualVerifyWithId(manualId)
+  }
+
+  // Share functionality
+  const [copied, setCopied] = useState(false)
+
+  const getShareUrl = () => {
+    return `${window.location.origin}/verify?id=${result?.diplomaId}`
+  }
+
+  const handleCopyLink = async () => {
+    await navigator.clipboard.writeText(getShareUrl())
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleShareTwitter = () => {
+    const text = `I verified diploma #${result?.diplomaId} on Serti-Chain blockchain! 🎓✅`
+    const url = getShareUrl()
+    window.open(
+      `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`,
+      '_blank',
+    )
+  }
+
+  const handleShareLinkedIn = () => {
+    const url = getShareUrl()
+    window.open(
+      `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`,
+      '_blank',
+    )
+  }
+
+  const handleNativeShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Diploma Verification #${result?.diplomaId}`,
+          text: `Verified diploma on Serti-Chain blockchain`,
+          url: getShareUrl(),
+        })
+      } catch (err) {
+        // User cancelled or error
+        console.log('Share cancelled')
+      }
+    } else {
+      handleCopyLink()
     }
   }
 
@@ -253,6 +339,9 @@ function VerifyCredentialPage() {
 
   return (
     <div className="relative flex flex-col min-h-screen w-full bg-background-dark text-white font-display overflow-x-hidden antialiased">
+      {/* Navigation */}
+      <PublicNav />
+
       {/* Background Glows */}
       <div className="fixed top-[-10%] right-[-10%] w-[40%] h-[40%] bg-sc-accent-blue/10 blur-[120px] rounded-full pointer-events-none z-0"></div>
 
@@ -387,9 +476,63 @@ function VerifyCredentialPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <button className="p-2 bg-white/5 rounded-lg text-[#929bc9] hover:text-white transition-colors">
-                          <Share2 className="w-4 h-4" />
-                        </button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button className="p-2 bg-white/5 rounded-lg text-[#929bc9] hover:text-white transition-colors">
+                              <Share2 className="w-4 h-4" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent
+                            align="end"
+                            className="w-48 bg-[#1c2136] border-[#323b67]"
+                          >
+                            <DropdownMenuLabel className="text-[#929bc9]">
+                              Share Verification
+                            </DropdownMenuLabel>
+                            <DropdownMenuSeparator className="bg-[#323b67]" />
+                            <DropdownMenuItem
+                              className="text-white hover:bg-[#232948] focus:bg-[#232948] focus:text-white cursor-pointer"
+                              onClick={handleCopyLink}
+                            >
+                              {copied ? (
+                                <>
+                                  <Check className="w-4 h-4 mr-2 text-green-400" />
+                                  <span className="text-green-400">
+                                    Copied!
+                                  </span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-4 h-4 mr-2" />
+                                  Copy Link
+                                </>
+                              )}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-white hover:bg-[#232948] focus:bg-[#232948] focus:text-white cursor-pointer"
+                              onClick={handleShareTwitter}
+                            >
+                              <Twitter className="w-4 h-4 mr-2" />
+                              Share on X
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-white hover:bg-[#232948] focus:bg-[#232948] focus:text-white cursor-pointer"
+                              onClick={handleShareLinkedIn}
+                            >
+                              <Linkedin className="w-4 h-4 mr-2" />
+                              Share on LinkedIn
+                            </DropdownMenuItem>
+                            {typeof navigator.share === 'function' && (
+                              <DropdownMenuItem
+                                className="text-white hover:bg-[#232948] focus:bg-[#232948] focus:text-white cursor-pointer"
+                                onClick={handleNativeShare}
+                              >
+                                <LinkIcon className="w-4 h-4 mr-2" />
+                                More Options...
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                         {result.decryptedFile && (
                           <button
                             className="p-2 bg-white/5 rounded-lg text-[#929bc9] hover:text-white transition-colors"

@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   Search,
   Download,
@@ -8,8 +8,25 @@ import {
   AlertTriangle,
   Loader2,
   XCircle,
+  ChevronLeft,
+  ChevronRight,
+  Calendar,
 } from 'lucide-react'
 import { ExplorerLink } from '../components/ExplorerLink'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
+} from '../components/ui/dropdown-menu'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '../components/ui/popover'
+import PublicNav from '../components/PublicNav'
 
 export const Route = createFileRoute('/ledger')({
   component: PublicLedgerPage,
@@ -26,12 +43,20 @@ interface DiplomaEntry {
   cid: string
 }
 
+const ITEMS_PER_PAGE = 10
+
 function PublicLedgerPage() {
   const [filter, setFilter] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [diplomas, setDiplomas] = useState<DiplomaEntry[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+
+  // Advanced filter states
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
 
   useEffect(() => {
     const fetchDiplomas = async () => {
@@ -68,22 +93,139 @@ function PublicLedgerPage() {
     }
   }
 
-  const filteredDiplomas = diplomas.filter((d) => {
-    const matchesFilter =
-      filter === 'all' ||
-      (filter === 'active' && d.isActive) ||
-      (filter === 'revoked' && !d.isActive)
-    const search = searchQuery.toLowerCase()
-    const matchesSearch =
-      d.id.toString().includes(search) ||
-      d.studentName.toLowerCase().includes(search) ||
-      d.nim.toLowerCase().includes(search)
-    return matchesFilter && matchesSearch
-  })
+  // Filter and search logic
+  const filteredDiplomas = useMemo(() => {
+    let result = diplomas.filter((d) => {
+      const matchesFilter =
+        filter === 'all' ||
+        (filter === 'active' && d.isActive) ||
+        (filter === 'revoked' && !d.isActive)
+
+      const search = searchQuery.toLowerCase()
+      const matchesSearch =
+        d.id.toString().includes(search) ||
+        d.studentName.toLowerCase().includes(search) ||
+        d.nim.toLowerCase().includes(search)
+
+      // Date filter
+      let matchesDate = true
+      if (dateFrom) {
+        const fromTimestamp = new Date(dateFrom).getTime() / 1000
+        matchesDate = matchesDate && d.timestamp >= fromTimestamp
+      }
+      if (dateTo) {
+        const toTimestamp = new Date(dateTo).getTime() / 1000 + 86400 // Include full day
+        matchesDate = matchesDate && d.timestamp <= toTimestamp
+      }
+
+      return matchesFilter && matchesSearch && matchesDate
+    })
+
+    // Sort
+    result.sort((a, b) => {
+      if (sortOrder === 'newest') {
+        return b.timestamp - a.timestamp
+      }
+      return a.timestamp - b.timestamp
+    })
+
+    return result
+  }, [diplomas, filter, searchQuery, sortOrder, dateFrom, dateTo])
+
+  // Pagination
+  const totalPages = Math.ceil(filteredDiplomas.length / ITEMS_PER_PAGE)
+  const paginatedDiplomas = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE
+    return filteredDiplomas.slice(start, start + ITEMS_PER_PAGE)
+  }, [filteredDiplomas, currentPage])
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [filter, searchQuery, sortOrder, dateFrom, dateTo])
+
+  // Export CSV function
+  const exportToCSV = () => {
+    const headers = [
+      'Diploma ID',
+      'Student Name',
+      'NIM',
+      'Owner Address',
+      'Issuer Address',
+      'Issue Date',
+      'Issue Time (UTC)',
+      'Status',
+      'CID',
+    ]
+
+    const rows = filteredDiplomas.map((d) => {
+      const { date, time } = formatDate(d.timestamp)
+      return [
+        d.id,
+        d.studentName,
+        d.nim,
+        d.owner,
+        d.issuer,
+        date,
+        time,
+        d.isActive ? 'Active' : 'Revoked',
+        d.cid,
+      ]
+    })
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map((row) =>
+        row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','),
+      ),
+    ].join('\n')
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute(
+      'download',
+      `public-ledger-${new Date().toISOString().split('T')[0]}.csv`,
+    )
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  // Clear date filter
+  const clearDateFilter = () => {
+    setDateFrom('')
+    setDateTo('')
+  }
+
+  // Check if any advanced filter is active
+  const hasAdvancedFilter = dateFrom || dateTo || sortOrder !== 'newest'
+
+  // Generate page numbers
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = []
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i)
+    } else {
+      if (currentPage <= 3) {
+        pages.push(1, 2, 3, 4, '...', totalPages)
+      } else if (currentPage >= totalPages - 2) {
+        pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages)
+      } else {
+        pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages)
+      }
+    }
+    return pages
+  }
 
   return (
-    <div className="flex min-h-screen bg-background-dark font-display text-white antialiased overflow-hidden">
-      <div className="flex-1 flex flex-col h-screen overflow-hidden relative">
+    <div className="flex flex-col min-h-screen bg-background-dark font-display text-white antialiased overflow-hidden">
+      {/* Navigation */}
+      <PublicNav />
+
+      <div className="flex-1 flex flex-col h-full overflow-hidden relative">
         {/* Background Gradient Decorations */}
         <div className="absolute top-0 left-0 w-full h-96 bg-linear-to-b from-[#1337ec]/10 to-transparent pointer-events-none"></div>
 
@@ -107,7 +249,11 @@ function PublicLedgerPage() {
                   issued and revoked on the blockchain network.
                 </p>
               </div>
-              <button className="sc-btn-primary h-12 px-6">
+              <button
+                onClick={exportToCSV}
+                disabled={filteredDiplomas.length === 0}
+                className="sc-btn-primary h-12 px-6 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
                 <Download className="w-4 h-4" />
                 Export CSV
               </button>
@@ -162,10 +308,84 @@ function PublicLedgerPage() {
                 </button>
               </div>
 
-              <button className="flex items-center gap-2 px-5 h-10 bg-[#232948]/50 border border-white/5 rounded-xl text-sm font-bold text-[#929bc9] hover:text-white transition-all">
-                <Filter className="w-4 h-4" />
-                Filter
-              </button>
+              {/* Advanced Filter Dropdown */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="flex items-center gap-2 px-5 h-10 bg-[#232948]/50 border border-white/5 rounded-xl text-sm font-bold text-[#929bc9] hover:text-white transition-all">
+                    <Filter className="w-4 h-4" />
+                    Filter
+                    {hasAdvancedFilter && (
+                      <span className="w-2 h-2 bg-sc-accent-blue rounded-full" />
+                    )}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="end"
+                  className="w-72 bg-[#1c2136] border-[#323b67] p-4"
+                >
+                  <div className="flex flex-col gap-4">
+                    <div>
+                      <label className="text-xs font-bold text-[#929bc9] uppercase tracking-wider mb-2 block">
+                        Sort Order
+                      </label>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setSortOrder('newest')}
+                          className={`flex-1 py-2 px-3 rounded-lg text-sm font-bold transition-all ${
+                            sortOrder === 'newest'
+                              ? 'bg-sc-accent-blue text-white'
+                              : 'bg-[#232948] text-[#929bc9] hover:text-white'
+                          }`}
+                        >
+                          Newest
+                        </button>
+                        <button
+                          onClick={() => setSortOrder('oldest')}
+                          className={`flex-1 py-2 px-3 rounded-lg text-sm font-bold transition-all ${
+                            sortOrder === 'oldest'
+                              ? 'bg-sc-accent-blue text-white'
+                              : 'bg-[#232948] text-[#929bc9] hover:text-white'
+                          }`}
+                        >
+                          Oldest
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-[#929bc9] uppercase tracking-wider mb-2 flex items-center gap-2">
+                        <Calendar className="w-3 h-3" />
+                        Date Range
+                      </label>
+                      <div className="flex flex-col gap-2">
+                        <input
+                          type="date"
+                          value={dateFrom}
+                          onChange={(e) => setDateFrom(e.target.value)}
+                          className="w-full bg-[#232948] border border-[#323b67] rounded-lg px-3 py-2 text-white text-sm focus:ring-2 focus:ring-sc-accent-blue focus:border-transparent outline-none"
+                          placeholder="From"
+                        />
+                        <input
+                          type="date"
+                          value={dateTo}
+                          onChange={(e) => setDateTo(e.target.value)}
+                          className="w-full bg-[#232948] border border-[#323b67] rounded-lg px-3 py-2 text-white text-sm focus:ring-2 focus:ring-sc-accent-blue focus:border-transparent outline-none"
+                          placeholder="To"
+                        />
+                      </div>
+                    </div>
+
+                    {(dateFrom || dateTo) && (
+                      <button
+                        onClick={clearDateFilter}
+                        className="w-full py-2 bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-bold rounded-lg hover:bg-red-500/20 transition-all"
+                      >
+                        Clear Date Filter
+                      </button>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
 
             {/* Loading State */}
@@ -214,7 +434,7 @@ function PublicLedgerPage() {
                     </tr>
                   </thead>
                   <tbody className="text-sm">
-                    {filteredDiplomas.length === 0 ? (
+                    {paginatedDiplomas.length === 0 ? (
                       <tr>
                         <td
                           colSpan={5}
@@ -226,7 +446,7 @@ function PublicLedgerPage() {
                         </td>
                       </tr>
                     ) : (
-                      filteredDiplomas.map((diploma) => {
+                      paginatedDiplomas.map((diploma) => {
                         const { date, time } = formatDate(diploma.timestamp)
                         return (
                           <tr
@@ -295,19 +515,53 @@ function PublicLedgerPage() {
                   <p className="text-sm font-bold text-[#5a648b]">
                     Showing{' '}
                     <span className="text-white">
-                      {filteredDiplomas.length}
+                      {filteredDiplomas.length > 0
+                        ? Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, filteredDiplomas.length)
+                        : 0}
                     </span>{' '}
-                    of <span className="text-white">{diplomas.length}</span>{' '}
+                    -{' '}
+                    <span className="text-white">
+                      {Math.min(currentPage * ITEMS_PER_PAGE, filteredDiplomas.length)}
+                    </span>{' '}
+                    of <span className="text-white">{filteredDiplomas.length}</span>{' '}
                     diplomas
                   </p>
                   <div className="flex items-center gap-2">
                     <button
-                      className="px-5 py-2 bg-[#232948]/50 border border-white/5 rounded-xl text-sm font-bold text-[#929bc9] disabled:opacity-30 disabled:cursor-not-allowed"
-                      disabled
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="px-5 py-2 bg-[#232948]/50 border border-white/5 rounded-xl text-sm font-bold text-[#929bc9] disabled:opacity-30 disabled:cursor-not-allowed hover:text-white transition-all"
                     >
                       Previous
                     </button>
-                    <button className="px-5 py-2 bg-[#232948]/50 border border-white/5 rounded-xl text-sm font-bold text-[#929bc9] hover:text-white transition-all">
+
+                    <div className="flex items-center gap-1">
+                      {getPageNumbers().map((page, index) =>
+                        typeof page === 'number' ? (
+                          <button
+                            key={index}
+                            onClick={() => setCurrentPage(page)}
+                            className={`w-8 h-8 rounded-lg text-xs font-bold transition-colors ${
+                              currentPage === page
+                                ? 'bg-sc-accent-blue text-white'
+                                : 'bg-[#232948]/50 border border-white/5 text-[#929bc9] hover:text-white'
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        ) : (
+                          <span key={index} className="text-[#5a648b] px-1">
+                            ...
+                          </span>
+                        ),
+                      )}
+                    </div>
+
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages || totalPages === 0}
+                      className="px-5 py-2 bg-[#232948]/50 border border-white/5 rounded-xl text-sm font-bold text-[#929bc9] hover:text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
                       Next
                     </button>
                   </div>

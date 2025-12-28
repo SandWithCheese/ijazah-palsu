@@ -1,5 +1,5 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { useState, useEffect } from 'react'
+import { createFileRoute, Link } from '@tanstack/react-router'
+import { useState, useEffect, useMemo } from 'react'
 import {
   Search,
   Filter,
@@ -10,7 +10,20 @@ import {
   ShieldCheck,
   XCircle,
   Loader2,
+  Eye,
+  Copy,
+  ExternalLink,
+  CheckCircle,
 } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
+} from '../../components/ui/dropdown-menu'
 
 export const Route = createFileRoute('/dashboard/records')({
   component: StudentRecordsPage,
@@ -26,11 +39,20 @@ interface DiplomaRecord {
   isActive: boolean
 }
 
+const ITEMS_PER_PAGE = 10
+
 function StudentRecordsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [diplomas, setDiplomas] = useState<DiplomaRecord[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [copiedId, setCopiedId] = useState<number | null>(null)
+
+  // Filter states
+  const [showActive, setShowActive] = useState(true)
+  const [showRevoked, setShowRevoked] = useState(true)
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest')
 
   useEffect(() => {
     const fetchDiplomas = async () => {
@@ -57,14 +79,110 @@ function StudentRecordsPage() {
     })
   }
 
-  const filteredDiplomas = diplomas.filter((d) => {
-    const search = searchTerm.toLowerCase()
-    return (
-      d.studentName.toLowerCase().includes(search) ||
-      d.nim.toLowerCase().includes(search) ||
-      d.id.toString().includes(search)
+  // Filter and search logic
+  const filteredDiplomas = useMemo(() => {
+    let result = diplomas.filter((d) => {
+      const search = searchTerm.toLowerCase()
+      const matchesSearch =
+        d.studentName.toLowerCase().includes(search) ||
+        d.nim.toLowerCase().includes(search) ||
+        d.id.toString().includes(search)
+
+      const matchesStatus =
+        (showActive && d.isActive) || (showRevoked && !d.isActive)
+
+      return matchesSearch && matchesStatus
+    })
+
+    // Sort
+    result.sort((a, b) => {
+      if (sortOrder === 'newest') {
+        return b.timestamp - a.timestamp
+      }
+      return a.timestamp - b.timestamp
+    })
+
+    return result
+  }, [diplomas, searchTerm, showActive, showRevoked, sortOrder])
+
+  // Pagination
+  const totalPages = Math.ceil(filteredDiplomas.length / ITEMS_PER_PAGE)
+  const paginatedDiplomas = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE
+    return filteredDiplomas.slice(start, start + ITEMS_PER_PAGE)
+  }, [filteredDiplomas, currentPage])
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, showActive, showRevoked, sortOrder])
+
+  // Export CSV function
+  const exportToCSV = () => {
+    const headers = [
+      'Diploma ID',
+      'Student Name',
+      'NIM',
+      'Owner Address',
+      'Issuer Address',
+      'Issue Date',
+      'Status',
+    ]
+
+    const rows = filteredDiplomas.map((d) => [
+      d.id,
+      d.studentName,
+      d.nim,
+      d.owner,
+      d.issuer,
+      new Date(d.timestamp * 1000).toISOString(),
+      d.isActive ? 'Active' : 'Revoked',
+    ])
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map((row) =>
+        row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','),
+      ),
+    ].join('\n')
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute(
+      'download',
+      `diploma-records-${new Date().toISOString().split('T')[0]}.csv`,
     )
-  })
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  // Copy diploma ID to clipboard
+  const copyDiplomaId = async (id: number) => {
+    await navigator.clipboard.writeText(id.toString())
+    setCopiedId(id)
+    setTimeout(() => setCopiedId(null), 2000)
+  }
+
+  // Generate page numbers
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = []
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i)
+    } else {
+      if (currentPage <= 3) {
+        pages.push(1, 2, 3, 4, '...', totalPages)
+      } else if (currentPage >= totalPages - 2) {
+        pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages)
+      } else {
+        pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages)
+      }
+    }
+    return pages
+  }
 
   if (isLoading) {
     return (
@@ -106,11 +224,72 @@ function StudentRecordsPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <button className="flex items-center gap-2 px-4 h-12 bg-[#232948] border border-[#323b67] text-white text-sm font-bold rounded-lg hover:bg-white/5 transition-colors">
-            <Filter className="w-4 h-4 text-[#929bc9]" />
-            Filters
-          </button>
-          <button className="flex items-center gap-2 px-4 h-12 bg-[#232948] border border-[#323b67] text-white text-sm font-bold rounded-lg hover:bg-white/5 transition-colors">
+          {/* Filters Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex items-center gap-2 px-4 h-12 bg-[#232948] border border-[#323b67] text-white text-sm font-bold rounded-lg hover:bg-white/5 transition-colors">
+                <Filter className="w-4 h-4 text-[#929bc9]" />
+                Filters
+                {(!showActive || !showRevoked) && (
+                  <span className="w-2 h-2 bg-sc-accent-blue rounded-full" />
+                )}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="w-56 bg-[#1c2136] border-[#323b67]"
+            >
+              <DropdownMenuLabel className="text-[#929bc9]">
+                Filter by Status
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator className="bg-[#323b67]" />
+              <DropdownMenuCheckboxItem
+                checked={showActive}
+                onCheckedChange={setShowActive}
+                className="text-white hover:bg-[#232948] focus:bg-[#232948] focus:text-white"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-400 rounded-full" />
+                  Show Active
+                </div>
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={showRevoked}
+                onCheckedChange={setShowRevoked}
+                className="text-white hover:bg-[#232948] focus:bg-[#232948] focus:text-white"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-red-400 rounded-full" />
+                  Show Revoked
+                </div>
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuSeparator className="bg-[#323b67]" />
+              <DropdownMenuLabel className="text-[#929bc9]">
+                Sort Order
+              </DropdownMenuLabel>
+              <DropdownMenuCheckboxItem
+                checked={sortOrder === 'newest'}
+                onCheckedChange={() => setSortOrder('newest')}
+                className="text-white hover:bg-[#232948] focus:bg-[#232948] focus:text-white"
+              >
+                Newest First
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={sortOrder === 'oldest'}
+                onCheckedChange={() => setSortOrder('oldest')}
+                className="text-white hover:bg-[#232948] focus:bg-[#232948] focus:text-white"
+              >
+                Oldest First
+              </DropdownMenuCheckboxItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Export CSV Button */}
+          <button
+            onClick={exportToCSV}
+            disabled={filteredDiplomas.length === 0}
+            className="flex items-center gap-2 px-4 h-12 bg-[#232948] border border-[#323b67] text-white text-sm font-bold rounded-lg hover:bg-white/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             <Download className="w-4 h-4 text-[#929bc9]" />
             Export CSV
           </button>
@@ -139,7 +318,7 @@ function StudentRecordsPage() {
               </tr>
             </thead>
             <tbody className="text-sm">
-              {filteredDiplomas.length === 0 ? (
+              {paginatedDiplomas.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="p-8 text-center text-[#929bc9]">
                     {diplomas.length === 0
@@ -148,7 +327,7 @@ function StudentRecordsPage() {
                   </td>
                 </tr>
               ) : (
-                filteredDiplomas.map((diploma) => (
+                paginatedDiplomas.map((diploma) => (
                   <tr
                     key={diploma.id}
                     className="border-b border-white/5 hover:bg-[#1c2136] transition-colors group"
@@ -199,9 +378,73 @@ function StudentRecordsPage() {
                       </div>
                     </td>
                     <td className="p-4 text-right">
-                      <button className="p-2 text-[#5a648b] hover:text-white transition-colors">
-                        <MoreVertical className="w-4 h-4" />
-                      </button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="p-2 text-[#5a648b] hover:text-white transition-colors">
+                            <MoreVertical className="w-4 h-4" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          align="end"
+                          className="w-48 bg-[#1c2136] border-[#323b67]"
+                        >
+                          <DropdownMenuLabel className="text-[#929bc9]">
+                            Actions
+                          </DropdownMenuLabel>
+                          <DropdownMenuSeparator className="bg-[#323b67]" />
+                          <DropdownMenuItem
+                            className="text-white hover:bg-[#232948] focus:bg-[#232948] focus:text-white cursor-pointer"
+                            asChild
+                          >
+                            <Link to="/verify" search={{ id: diploma.id.toString() }}>
+                              <Eye className="w-4 h-4 mr-2" />
+                              View Details
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-white hover:bg-[#232948] focus:bg-[#232948] focus:text-white cursor-pointer"
+                            onClick={() => copyDiplomaId(diploma.id)}
+                          >
+                            {copiedId === diploma.id ? (
+                              <>
+                                <CheckCircle className="w-4 h-4 mr-2 text-green-400" />
+                                <span className="text-green-400">Copied!</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-4 h-4 mr-2" />
+                                Copy Diploma ID
+                              </>
+                            )}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-white hover:bg-[#232948] focus:bg-[#232948] focus:text-white cursor-pointer"
+                            onClick={() =>
+                              window.open(
+                                `https://sepolia.etherscan.io/address/${diploma.owner}`,
+                                '_blank',
+                              )
+                            }
+                          >
+                            <ExternalLink className="w-4 h-4 mr-2" />
+                            View on Explorer
+                          </DropdownMenuItem>
+                          {diploma.isActive && (
+                            <>
+                              <DropdownMenuSeparator className="bg-[#323b67]" />
+                              <DropdownMenuItem
+                                className="text-red-400 hover:bg-red-500/10 focus:bg-red-500/10 focus:text-red-400 cursor-pointer"
+                                asChild
+                              >
+                                <Link to="/dashboard/revoke" search={{ id: diploma.id.toString() }}>
+                                  <XCircle className="w-4 h-4 mr-2" />
+                                  Revoke Diploma
+                                </Link>
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </td>
                   </tr>
                 ))
@@ -214,20 +457,49 @@ function StudentRecordsPage() {
         <div className="p-6 border-t border-white/5 bg-[#1c2136]/30 flex items-center justify-between">
           <p className="text-xs font-bold text-[#5a648b] uppercase tracking-widest">
             Showing{' '}
-            <span className="text-white">{filteredDiplomas.length}</span> of{' '}
-            <span className="text-white">{diplomas.length}</span> diplomas
+            <span className="text-white">
+              {Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, filteredDiplomas.length)}
+            </span>{' '}
+            -{' '}
+            <span className="text-white">
+              {Math.min(currentPage * ITEMS_PER_PAGE, filteredDiplomas.length)}
+            </span>{' '}
+            of <span className="text-white">{filteredDiplomas.length}</span> diplomas
           </p>
           <div className="flex items-center gap-2">
             <button
-              className="p-2 rounded-lg bg-[#232948] border border-[#323b67] text-[#929bc9] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="p-2 rounded-lg bg-[#232948] border border-[#323b67] text-[#929bc9] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <button className="w-8 h-8 rounded-lg bg-sc-accent-blue text-white text-xs font-bold">
-              1
-            </button>
-            <button className="p-2 rounded-lg bg-[#232948] border border-[#323b67] text-[#929bc9] hover:text-white">
+            
+            {getPageNumbers().map((page, index) =>
+              typeof page === 'number' ? (
+                <button
+                  key={index}
+                  onClick={() => setCurrentPage(page)}
+                  className={`w-8 h-8 rounded-lg text-xs font-bold transition-colors ${
+                    currentPage === page
+                      ? 'bg-sc-accent-blue text-white'
+                      : 'bg-[#232948] border border-[#323b67] text-[#929bc9] hover:text-white'
+                  }`}
+                >
+                  {page}
+                </button>
+              ) : (
+                <span key={index} className="text-[#5a648b] px-1">
+                  ...
+                </span>
+              ),
+            )}
+
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages || totalPages === 0}
+              className="p-2 rounded-lg bg-[#232948] border border-[#323b67] text-[#929bc9] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>

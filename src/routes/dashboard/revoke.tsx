@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   Search,
   AlertTriangle,
@@ -12,12 +12,22 @@ import {
   Loader2,
 } from 'lucide-react'
 
+interface RevokeSearch {
+  id?: string
+}
+
 export const Route = createFileRoute('/dashboard/revoke')({
   component: RevokeDiplomaPage,
+  validateSearch: (search: Record<string, unknown>): RevokeSearch => {
+    return {
+      id: typeof search.id === 'string' ? search.id : undefined,
+    }
+  },
 })
 
 function RevokeDiplomaPage() {
-  const [diplomaId, setDiplomaId] = useState('')
+  const { id: searchId } = Route.useSearch()
+  const [diplomaId, setDiplomaId] = useState(searchId || '')
   const [reason, setReason] = useState('')
   const [isSearching, setIsSearching] = useState(false)
   const [isRevoking, setIsRevoking] = useState(false)
@@ -25,8 +35,9 @@ function RevokeDiplomaPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
-  const handleSearch = async () => {
-    if (!diplomaId.trim()) {
+  const handleSearch = useCallback(async (idToSearch?: string) => {
+    const searchValue = idToSearch || diplomaId
+    if (!searchValue.trim()) {
       setError('Please enter a diploma ID')
       return
     }
@@ -39,7 +50,7 @@ function RevokeDiplomaPage() {
       const { getDiplomaDetails, verifyDiploma } =
         await import('../../lib/web3/contracts')
 
-      const id = parseInt(diplomaId, 10)
+      const id = parseInt(searchValue, 10)
       if (isNaN(id)) {
         throw new Error('Invalid diploma ID')
       }
@@ -56,7 +67,15 @@ function RevokeDiplomaPage() {
     } finally {
       setIsSearching(false)
     }
-  }
+  }, [diplomaId])
+
+  // Auto-search when coming from records page with ID
+  useEffect(() => {
+    if (searchId) {
+      setDiplomaId(searchId)
+      handleSearch(searchId)
+    }
+  }, [searchId])
 
   const handleRevoke = async () => {
     if (!diplomaDetails) return
@@ -134,7 +153,7 @@ function RevokeDiplomaPage() {
 
           <button
             className="btn-primary"
-            onClick={handleSearch}
+            onClick={() => handleSearch()}
             disabled={isSearching || !diplomaId.trim()}
           >
             {isSearching ? (

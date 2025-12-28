@@ -14,7 +14,6 @@ import { Route as LedgerRouteImport } from './routes/ledger'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
-import { Route as DashboardWalletRouteImport } from './routes/dashboard/wallet'
 import { Route as DashboardVerifyRouteImport } from './routes/dashboard/verify'
 import { Route as DashboardSettingsRouteImport } from './routes/dashboard/settings'
 import { Route as DashboardRevokeRouteImport } from './routes/dashboard/revoke'
@@ -46,11 +45,6 @@ const IndexRoute = IndexRouteImport.update({
 const DashboardIndexRoute = DashboardIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => DashboardRoute,
-} as any)
-const DashboardWalletRoute = DashboardWalletRouteImport.update({
-  id: '/wallet',
-  path: '/wallet',
   getParentRoute: () => DashboardRoute,
 } as any)
 const DashboardVerifyRoute = DashboardVerifyRouteImport.update({
@@ -100,7 +94,6 @@ export interface FileRoutesByFullPath {
   '/dashboard/revoke': typeof DashboardRevokeRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/verify': typeof DashboardVerifyRoute
-  '/dashboard/wallet': typeof DashboardWalletRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/api/files/$cid': typeof ApiFilesCidRoute
 }
@@ -114,7 +107,6 @@ export interface FileRoutesByTo {
   '/dashboard/revoke': typeof DashboardRevokeRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/verify': typeof DashboardVerifyRoute
-  '/dashboard/wallet': typeof DashboardWalletRoute
   '/dashboard': typeof DashboardIndexRoute
   '/api/files/$cid': typeof ApiFilesCidRoute
 }
@@ -130,7 +122,6 @@ export interface FileRoutesById {
   '/dashboard/revoke': typeof DashboardRevokeRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/verify': typeof DashboardVerifyRoute
-  '/dashboard/wallet': typeof DashboardWalletRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/api/files/$cid': typeof ApiFilesCidRoute
 }
@@ -147,7 +138,6 @@ export interface FileRouteTypes {
     | '/dashboard/revoke'
     | '/dashboard/settings'
     | '/dashboard/verify'
-    | '/dashboard/wallet'
     | '/dashboard/'
     | '/api/files/$cid'
   fileRoutesByTo: FileRoutesByTo
@@ -161,7 +151,6 @@ export interface FileRouteTypes {
     | '/dashboard/revoke'
     | '/dashboard/settings'
     | '/dashboard/verify'
-    | '/dashboard/wallet'
     | '/dashboard'
     | '/api/files/$cid'
   id:
@@ -176,7 +165,6 @@ export interface FileRouteTypes {
     | '/dashboard/revoke'
     | '/dashboard/settings'
     | '/dashboard/verify'
-    | '/dashboard/wallet'
     | '/dashboard/'
     | '/api/files/$cid'
   fileRoutesById: FileRoutesById
@@ -225,13 +213,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/dashboard/'
       preLoaderRoute: typeof DashboardIndexRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/dashboard/wallet': {
-      id: '/dashboard/wallet'
-      path: '/wallet'
-      fullPath: '/dashboard/wallet'
-      preLoaderRoute: typeof DashboardWalletRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/dashboard/verify': {
@@ -292,7 +273,6 @@ interface DashboardRouteChildren {
   DashboardRevokeRoute: typeof DashboardRevokeRoute
   DashboardSettingsRoute: typeof DashboardSettingsRoute
   DashboardVerifyRoute: typeof DashboardVerifyRoute
-  DashboardWalletRoute: typeof DashboardWalletRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
 }
 
@@ -302,7 +282,6 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardRevokeRoute: DashboardRevokeRoute,
   DashboardSettingsRoute: DashboardSettingsRoute,
   DashboardVerifyRoute: DashboardVerifyRoute,
-  DashboardWalletRoute: DashboardWalletRoute,
   DashboardIndexRoute: DashboardIndexRoute,
 }
 
