@@ -144,8 +144,30 @@ function VerifyCredentialPage() {
         revocationReason = await getRevocationReason(id)
       }
 
-      // Create blob for download
-      const decryptedBlob = arrayBufferToBlob(decryptedData, 'application/pdf')
+      // Step 5: Add verification URL and QR code to PDF (as per specification)
+      const { addVerificationUrlToPDF } = await import('../lib/pdf-utils')
+      const verificationUrl = window.location.href // Full URL with hash
+      let finalData = decryptedData
+
+      try {
+        // Try to add QR code to PDF
+        finalData = await addVerificationUrlToPDF(
+          decryptedData,
+          verificationUrl,
+          diplomaId,
+        )
+        console.log('✅ Successfully added verification URL and QR code to diploma')
+      } catch (pdfError) {
+        console.warn(
+          'Could not modify PDF (may not be a PDF file), using original:',
+          pdfError,
+        )
+        // If it's not a PDF or modification fails, use original decrypted data
+        finalData = decryptedData
+      }
+
+      // Create blob for download with modified PDF
+      const decryptedBlob = arrayBufferToBlob(finalData, 'application/pdf')
 
       setResult({
         diplomaId,
